@@ -173,20 +173,39 @@ trait ModelFetch
                 break;
             case OneToMany::class:
                 $id = $this->id;
+                /** @var class-string<ModelCollection> $collectionClass */
+                $collectionClass = ModelCollection::class;
+                if (
+                    isset($property['type'])
+                    && $property['type'] !== $collectionClass
+                ) {
+                    if (!is_a($property['type'], $collectionClass)) {
+                        throw new \RuntimeException(
+                            sprintf(
+                                'Invalid property type %s for relation type %s on %s::$%s',
+                                $property['type'],
+                                $relation['type'],
+                                $this::class,
+                                $propertyName
+                            )
+                        );
+                    }
+                    $collectionClass = $property['type'];
+                }
+
                 if ($id === null) {
-                    $this->$propertyName = new ModelCollection();
+                    $this->$propertyName = new $collectionClass();
                     break;
                 }
-                $factoryClosure = fn() => new ModelCollection(
+                $factoryClosure = fn() => new $collectionClass(
                     $className::query()
                               ->where('%n = %i', $foreignKey, $id)
                         ->cacheTags($this::TABLE.'/'.$this->id.'/relations')
                               ->get()
                 );
 
-                // Skip lazy-loaded relations
                 if ($relation['loadingType'] === LoadingType::LAZY) {
-                    $reflection = new ReflectionClass(ModelCollection::class);
+                    $reflection = new ReflectionClass($collectionClass);
                     $this->$propertyName = $reflection->newLazyProxy($factoryClosure);
                     break;
                 }
@@ -194,23 +213,41 @@ trait ModelFetch
                 break;
             case ManyToMany::class:
                 $id = $this->id;
+                /** @var class-string<ModelCollection> $collectionClass */
+                $collectionClass = ModelCollection::class;
+                if (
+                    isset($property['type'])
+                    && $property['type'] !== $collectionClass
+                ) {
+                    if (!is_a($property['type'], $collectionClass)) {
+                        throw new \RuntimeException(
+                            sprintf(
+                                'Invalid property type %s for relation type %s on %s::$%s',
+                                $property['type'],
+                                $relation['type'],
+                                $this::class,
+                                $propertyName
+                            )
+                        );
+                    }
+                    $collectionClass = $property['type'];
+                }
                 if ($id === null) {
-                    $this->$propertyName = new ModelCollection();
+                    $this->$propertyName = new $collectionClass();
                     break;
                 }
                 /** @var ManyToMany $attributeClass */
                 $attributeClass = unserialize($relation['instance'], ['allowedClasses' => [ManyToMany::class]]);
                 $connectionQuery = $attributeClass->getConnectionQuery($id, $className, $this);
-                $factoryClosure = fn() => new ModelCollection(
+                $factoryClosure = fn() => new $collectionClass(
                     $className::query()
                               ->where('%n IN %sql', $foreignKey, $connectionQuery)
                         ->cacheTags($this::TABLE.'/'.$this->id.'/relations')
                               ->get()
                 );
 
-                // Skip lazy-loaded relations
                 if ($relation['loadingType'] === LoadingType::LAZY) {
-                    $reflection = new ReflectionClass(ModelCollection::class);
+                    $reflection = new ReflectionClass($collectionClass);
                     $this->$propertyName = $reflection->newLazyProxy($factoryClosure);
                     break;
                 }
