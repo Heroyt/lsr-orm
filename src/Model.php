@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @author Tomáš Vojík <xvojik00@stud.fit.vutbr.cz>, <vojik@wboy.cz>
  */
@@ -6,32 +7,24 @@
 namespace Lsr\Orm;
 
 use ArrayAccess;
-use DateInterval;
-use DateTime;
+use BackedEnum;
 use Dibi\Exception;
 use Dibi\Row;
 use Error;
 use JsonSerializable;
-use Lsr\Core\App;
-use Lsr\Core\Caching\Cache;
-use Lsr\Core\DB;
-use Lsr\Core\Exceptions\ModelNotFoundException;
-use Lsr\Core\Exceptions\UndefinedPropertyException;
-use Lsr\Core\Exceptions\ValidationException;
-use Lsr\Orm\Attributes\ManyToMany;
-use Lsr\Orm\Attributes\ManyToOne;
-use Lsr\Orm\Attributes\NoDB;
-use Lsr\Orm\Attributes\OneToMany;
-use Lsr\Orm\Attributes\OneToOne;
-use Lsr\Orm\Attributes\Validation\Required;
-use Lsr\Orm\Attributes\Validation\Validator;
-use Lsr\Orm\Interfaces\InsertExtendInterface;
+use Lsr\Db\DB;
 use Lsr\Helpers\Tools\Strings;
 use Lsr\Logging\Exceptions\DirectoryCreationException;
 use Lsr\Logging\Logger;
-use Nette\Caching\Cache as CacheParent;
-use ReflectionAttribute;
-use RuntimeException;
+use Lsr\ObjectValidation\Validator;
+use Lsr\Orm\Attributes\NoDB;
+use Lsr\Orm\Attributes\Relations\ManyToOne;
+use Lsr\Orm\Attributes\Relations\OneToOne;
+use Lsr\Orm\Config\ModelConfig;
+use Lsr\Orm\Config\ModelConfigProvider;
+use Lsr\Orm\Exceptions\ModelNotFoundException;
+use Lsr\Orm\Exceptions\ValidationException;
+use Lsr\Orm\Interfaces\InsertExtendInterface;
 
 /**
  * @implements ArrayAccess<string, mixed>
@@ -42,10 +35,11 @@ use RuntimeException;
 abstract class Model implements JsonSerializable, ArrayAccess
 {
     use ModelConfigProvider;
+    use ModelFetch;
 
-    /** @var string Database table name */
-    public const string TABLE = '';
-    /** @var string[] Static tags to add to all cache records for this model */
+    /** @var non-empty-string Database table name */
+    public const string TABLE = 'models';
+    /** @var non-empty-string[] Static tags to add to all cache records for this model. */
     public const    array CACHE_TAGS = [];
     protected const array JSON_EXCLUDE_PROPERTIES = ['row', 'cacheTags', 'logger', 'relationIds'];
 
@@ -53,7 +47,8 @@ abstract class Model implements JsonSerializable, ArrayAccess
     public ?int $id = null;
     protected ?Row $row = null;
     protected Logger $logger;
-    /** @var string[] Dynamic tags to add to cache records for this model instance */
+
+    /** @var non-empty-string[] Dynamic tags to add to cache records for this model instance */
     protected array $cacheTags = [];
 
     /** @var array<string, int> */
@@ -70,16 +65,15 @@ abstract class Model implements JsonSerializable, ArrayAccess
     public function __construct(?int $id = null, ?Row $dbRow = null) {
         $pk = $this::getPrimaryKey();
         if (isset($dbRow->$pk) && !isset($id)) {
-            /** @noinspection NullPointerExceptionInspection */
-            $id = (int) $dbRow->$pk;
+            assert(is_int($dbRow->$pk));
+            $id = $dbRow->$pk;
         }
         if (isset($id) && !empty($this::TABLE)) {
             $this->id = $id;
             ModelRepository::setInstance($this);
             $this->row = $dbRow;
             $this->fetch();
-        }
-        elseif (isset($dbRow)) {
+        } else if (isset($dbRow)) {
             $this->row = $dbRow;
             $this->fillFromRow();
         }
@@ -87,176 +81,26 @@ abstract class Model implements JsonSerializable, ArrayAccess
     }
 
     /**
-     * Fetch model's data from DB
+     * Checks if a model with given ID exists in database
      *
-     * @param  bool  $refresh
+     * @param  int  $id
      *
-     * @throws DirectoryCreationException
-     * @throws ModelNotFoundException
-     * @throws ValidationException
+     * @return bool
      */
-    public function fetch(bool $refresh = false) : void {
-        if (!isset($this->id) || $this->id <= 0) {
-            throw new RuntimeException('Id needs to be set before fetching model\'s data.');
-        }
-        if ($refresh || !isset($this->row)) {
-            /** @var Row|null $row */
-            $row = DB::select($this::TABLE, '*')->where('%n = %i', $this::getPrimaryKey(), $this->id)->cacheTags(
-              ...
-              $this->getCacheTags()
-            )->fetch();
-            $this->row = $row;
-        }
-        if (!isset($this->row)) {
-            throw new ModelNotFoundException(get_class($this).' model of ID '.$this->id.' was not found.');
-        }
-        $this->fillFromRow();
+    public static function exists(int $id): bool {
+        return DB::select(static::TABLE, '*')
+                 ->where('%n = %i', static::getPrimaryKey(), $id)
+                 ->exists();
     }
 
     /**
-     * @return string[]
-     */
-    protected function getCacheTags() : array {
-        return array_merge(
-          ['models', $this::TABLE, $this::TABLE.'/'.$this->id],
-          $this::CACHE_TAGS,
-          $this->cacheTags,
-        );
-    }
-
-    /**
-     * @return void
-     * @throws ModelNotFoundException
-     * @throws ValidationException
-     */
-    protected function fillFromRow() : void {
-        if (!isset($this->row)) {
-            return;
-        }
-
-        $row = $this->row->toArray();
-
-        foreach ($this::getProperties() as $name => $property) {
-            if ($property['isExtend']) {
-                /** @var class-string<InsertExtendInterface> $class */
-                $class = $property['type'];
-                // @phpstan-ignore-next-line
-                $this->$name = $class::parseRow($this->row);
-                continue;
-            }
-
-            if (isset($property['relation'])) {
-                $this->processRelation($name, $property['relation'], $property);
-                continue;
-            }
-
-            if (array_key_exists($name, $row)) {
-                $val = $row[$name];
-            }
-            else {
-                $snakeName = Strings::toSnakeCase($name);
-                if (!array_key_exists($snakeName, $row)) {
-                    // TODO: Maybe throw an exception
-                    continue;
-                }
-                $val = $row[$snakeName];
-            }
-
-            if ($property['isPrimaryKey']) {
-                $this->id = $val;
-                continue;
-            }
-
-            $this->setProperty($name, $val, $property);
-        }
-    }
-
-    /**
-     * @param  string  $propertyName
-     * @param  RelationConfig  $relation
-     * @param  PropertyConfig|null  $property
+     * Get all models
      *
-     * @return void
-     * @throws ModelNotFoundException
+     * @return static[]
      * @throws ValidationException
      */
-    protected function processRelation(string $propertyName, array $relation, ?array $property = null) : void {
-        if (!isset($property)) {
-            $property = $this::getProperties()[$propertyName] ?? null;
-            if (!isset($property)) {
-                throw new UndefinedPropertyException('Undefined property '.$this::class.'::$'.$propertyName);
-            }
-        }
-
-        $className = $relation['class'];
-        $factory = $className::getFactory();
-
-        $foreignKey = $relation['foreignKey'];
-        $localKey = $relation['localKey'];
-
-        switch ($relation['type']) {
-            case ManyToOne::class:
-            case OneToOne::class:
-                /** @var int|null $id */ $id = $this->row?->$localKey;
-                if (isset($id)) {
-                    $this->relationIds[$propertyName] = $id;
-                }
-
-                // Skip lazy-loaded relations
-                // The model class should implement its own loading method
-                if ($relation['loadingType'] === LoadingType::LAZY) {
-                    break;
-                }
-
-                // Check for nullable relations
-                if (is_null($id)) {
-                    if (!$property['allowsNull']) {
-                        throw new ValidationException('Cannot assign null to a non nullable relation');
-                    }
-                    $this->$propertyName = null;
-                    break;
-                }
-
-                // Get the relation
-                try {
-                    $this->$propertyName = isset($factory) ? $factory->factoryClass::getById(
-                      $id,
-                      $factory->defaultOptions
-                    ) : $className::get($id);
-                } catch (ModelNotFoundException $e) {
-                    if (!$property['allowsNull']) {
-                        throw $e;
-                    }
-                    // Default to null
-                    $this->$propertyName = null;
-                }
-                break;
-            case OneToMany::class:
-                // Skip lazy-loaded relations
-                if ($relation['loadingType'] === LoadingType::LAZY) {
-                    break;
-                }
-                $id = $this->id;
-                $this->$propertyName = $className::query()->where('%n = %i', $foreignKey, $id)->cacheTags(
-                  $this::TABLE.'/'.$this->id.'/relations'
-                )->get();
-                break;
-            case ManyToMany::class:
-                // Skip lazy-loaded relations
-                if ($relation['loadingType'] === LoadingType::LAZY) {
-                    break;
-                }
-                /** @var ManyToMany $attributeClass */
-                $attributeClass = unserialize($relation['instance'], ['allowedClasses' => [ManyToMany::class]]);
-                /** @var int $id */
-                $id = $this->id;
-                $this->$propertyName = $className::query()->where(
-                  '%n IN %sql',
-                  $foreignKey,
-                  $attributeClass->getConnectionQuery($id, $className, $this)
-                )->cacheTags($this::TABLE.'/'.$this->id.'/relations')->get();
-                break;
-        }
+    public static function getAll(): array {
+        return static::query()->get();
     }
 
     /**
@@ -270,7 +114,7 @@ abstract class Model implements JsonSerializable, ArrayAccess
      * @throws ModelNotFoundException
      * @throws ValidationException
      */
-    public static function get(int $id, ?Row $row = null) : static {
+    public static function get(int $id, ?Row $row = null): static {
         return ModelRepository::getInstance(static::class, $id) ?? new static($id, $row);
     }
 
@@ -279,128 +123,8 @@ abstract class Model implements JsonSerializable, ArrayAccess
      *
      * @return ModelQuery<static>
      */
-    public static function query() : ModelQuery {
+    public static function query(): ModelQuery {
         return new ModelQuery(static::class);
-    }
-
-    /**
-     * Set property value from the database
-     *
-     * @param  string  $name
-     * @param  mixed  $value
-     * @param  PropertyConfig|null  $property
-     *
-     * @return void
-     */
-    protected function setProperty(string $name, mixed $value, ?array $property = null) : void {
-        if (empty($property)) {
-            $property = $this::getProperties()[$name] ?? null;
-            if (!isset($property)) {
-                throw new UndefinedPropertyException('Undefined property '.$this::class.'::$'.$name);
-            }
-        }
-
-        if (!$property['isBuiltin']) {
-            if ($value instanceof DateInterval && $property['isDateTime']) {
-                $value = new DateTime($value->format('%H:%i:%s'));
-            }
-            if ($property['isEnum']) {
-                $enum = $property['type'];
-                $value = $enum::tryFrom($value);
-            }
-        }
-
-        if ($value === null && $property['isBuiltin'] && !$property['allowsNull']) {
-            switch ($property['type']) {
-                case 'int':
-                    $value = 0;
-                    break;
-                case 'string':
-                    $value = '';
-                    break;
-                case 'bool':
-                    $value = false;
-                    break;
-            }
-        }
-
-        $this->$name = $value;
-    }
-
-    /**
-     * Instantiate properties that have the Instantiate attribute
-     *
-     * Can instantiate only properties that have an installable class as its type.
-     *
-     * @return void
-     */
-    protected function instantiateProperties() : void {
-        $properties = $this::getProperties();
-        foreach ($properties as $propertyName => $property) {
-            // If the property does not have the Instantiate attribute - skip
-            // If the property already has a value - skip
-            if (!$property['instantiate'] || isset($this->$propertyName)) {
-                continue;
-            }
-
-            // Check type
-            if (!$property['type']) {
-                throw new RuntimeException(
-                  'Cannot initialize property '.static::class.'::'.$propertyName.' with no type.'
-                );
-            }
-            $className = $property['type'];
-            if ($property['isBuiltin'] || !class_exists($className)) {
-                // Built in types are not supported - string, int, float,...
-                // Non-built in types can also be interfaces or traits which is invalid. The type needs to be an instantiable class.
-                throw new RuntimeException(
-                  'Cannot initialize property '.static::class.'::'.$propertyName.' with type '.$property['type'].'.'
-                );
-            }
-            $this->$propertyName = new $className;
-        }
-    }
-
-    /**
-     * Checks if a model with given ID exists in database
-     *
-     * @param  int  $id
-     *
-     * @return bool
-     */
-    public static function exists(int $id) : bool {
-        $test = DB::select(static::TABLE, 'count(*)')
-                  ->where('%n = %i', static::getPrimaryKey(), $id)
-                  ->fetchSingle(cache: false);
-        return $test > 0;
-    }
-
-    /**
-     * Get all models
-     *
-     * @return static[]
-     * @throws ValidationException
-     */
-    public static function getAll() : array {
-        return static::query()->get();
-    }
-
-    /**
-     * Clear cache for this model
-     *
-     * @return void
-     */
-    public static function clearModelCache() : void {
-        /** @var Cache $cache */
-        $cache = App::getService('cache');
-        $cache->clean(
-          [
-            CacheParent::Tags => [
-              static::TABLE,
-              static::TABLE.'/query',
-            ],
-          ]
-        );
     }
 
     /**
@@ -409,7 +133,7 @@ abstract class Model implements JsonSerializable, ArrayAccess
      * @return void
      * @deprecated Use Lsr\Orm\ModelRepository::clearInstances()
      */
-    public static function clearInstances() : void {
+    public static function clearInstances(): void {
         ModelRepository::clearInstances(static::class);
     }
 
@@ -419,7 +143,7 @@ abstract class Model implements JsonSerializable, ArrayAccess
      * @return bool
      * @throws ValidationException
      */
-    public function save() : bool {
+    public function save(): bool {
         $this->validate();
         return isset($this->id) ? $this->update() : $this->insert();
     }
@@ -428,28 +152,10 @@ abstract class Model implements JsonSerializable, ArrayAccess
      * Validate the model's value
      *
      * @return void
-     * @throws ValidationException
+     * @throws \Lsr\ObjectValidation\Exceptions\ValidationException
      */
-    public function validate() : void {
-        $properties = $this::getPropertyReflections();
-        foreach ($properties as $property) {
-            $attributes = $property->getAttributes(Validator::class, ReflectionAttribute::IS_INSTANCEOF);
-            $propertyName = $property->getName();
-            foreach ($attributes as $attributeReflection) {
-                /** @var Validator $attribute */
-                $attribute = $attributeReflection->newInstance();
-
-                // Property is not set
-                if (!isset($this->$propertyName)) {
-                    if ($attribute instanceof Required) {
-                        $attribute->throw($this, $propertyName);
-                    }
-                    continue;
-                }
-
-                $attribute->validateValue($this->$propertyName, $this, $propertyName);
-            }
-        }
+    public function validate(): void {
+        new Validator()->validateAll($this);
     }
 
     /**
@@ -458,19 +164,28 @@ abstract class Model implements JsonSerializable, ArrayAccess
      * @return bool If the update was successful
      * @throws ValidationException
      */
-    public function update() : bool {
+    public function update(): bool {
         if (!isset($this->id)) {
             return false;
         }
-        $this->getLogger()->info('Updating model - '.$this->id);
+        $this->getLogger()->info('Updating model - ' . $this->id);
+        foreach ($this::getBeforeUpdate() as $method) {
+            if (method_exists($this, $method)) {
+                $this->$method();
+            }
+        }
         try {
             DB::update($this::TABLE, $this->getQueryData(), ['%n = %i', $this::getPrimaryKey(), $this->id]);
-            $this->clearCache();
         } catch (Exception $e) {
-            $this->getLogger()->error('Error running update query: '.$e->getMessage());
-            $this->getLogger()->debug('Query: '.$e->getSql());
+            $this->getLogger()->error('Error running update query: ' . $e->getMessage());
+            $this->getLogger()->debug('Query: ' . $e->getSql());
             $this->getLogger()->exception($e);
             return false;
+        }
+        foreach ($this::getAfterDelete() as $method) {
+            if (method_exists($this, $method)) {
+                $this->$method();
+            }
         }
         return true;
     }
@@ -480,7 +195,7 @@ abstract class Model implements JsonSerializable, ArrayAccess
      *
      * @return Logger
      */
-    public function getLogger() : Logger {
+    public function getLogger(): Logger {
         if (!isset($this->logger)) {
             $this->logger = ModelRepository::getLogger(static::class);
         }
@@ -493,7 +208,7 @@ abstract class Model implements JsonSerializable, ArrayAccess
      * @return array<string, mixed>
      * @throws ValidationException
      */
-    public function getQueryData() : array {
+    public function getQueryData(): array {
         $data = [];
 
         foreach ($this::getProperties() as $propertyName => $property) {
@@ -507,10 +222,9 @@ abstract class Model implements JsonSerializable, ArrayAccess
                 $relation = $property['relation'];
 
                 // Do not include lazy-loaded fields that have not been set yet
+                $reflection = new \ReflectionProperty($this, $propertyName);
                 try {
-                    if ($relation['loadingType'] === LoadingType::LAZY && !isset($this->$propertyName) && !is_null(
-                        $this->$propertyName
-                      )) {
+                    if (!$reflection->isInitialized($this)) {
                         continue;
                     }
                 } catch (Error $e) {
@@ -523,8 +237,9 @@ abstract class Model implements JsonSerializable, ArrayAccess
                 switch ($relation['type']) {
                     case OneToOne::class:
                     case ManyToOne::class:
+                        assert($this->$propertyName === null || $this->$propertyName instanceof self);
                         $data[empty($relation['localKey']) ? $relation['foreignKey'] :
-                          $relation['localKey']] = $this->$propertyName?->id;
+                            $relation['localKey']] = $this->$propertyName?->id;
                         break;
                 }
                 continue;
@@ -532,6 +247,7 @@ abstract class Model implements JsonSerializable, ArrayAccess
 
             // Handle insert-extend mapping
             if ($property['isExtend']) {
+                assert($this->$propertyName instanceof InsertExtendInterface);
                 $this->$propertyName->addQueryData($data);
                 continue;
             }
@@ -540,6 +256,7 @@ abstract class Model implements JsonSerializable, ArrayAccess
 
             // Handle enum values
             if ($property['isEnum']) {
+                assert($this->$propertyName instanceof BackedEnum);
                 $data[$columnName] = $this->$propertyName->value;
                 continue;
             }
@@ -550,46 +267,24 @@ abstract class Model implements JsonSerializable, ArrayAccess
     }
 
     /**
-     * Clear cache for this model instance
-     *
-     * @post Clear cache for this specific instance
-     *
-     * @return void
-     * @see  Cache
-     *
-     */
-    public function clearCache() : void {
-        if (isset($this->id)) {
-            /** @var Cache $cache */
-            $cache = App::getService('cache');
-            $cache->clean(
-              [
-                CacheParent::Tags => [
-                  $this::TABLE,
-                  $this::TABLE.'/query',
-                  $this::TABLE.'/'.$this->id,
-                  $this::TABLE.'/'.$this->id.'/relations',
-                ],
-              ]
-            );
-        }
-    }
-
-    /**
      * Insert a new model into the DB
      *
      * @return bool
      * @throws ValidationException
      */
-    public function insert() : bool {
+    public function insert(): bool {
         $this->getLogger()->info('Inserting new model');
+        foreach ($this::getBeforeInsert() as $method) {
+            if (method_exists($this, $method)) {
+                $this->$method();
+            }
+        }
         try {
             DB::insert($this::TABLE, $this->getQueryData());
             $this->id = DB::getInsertId();
-            $this::clearQueryCache();
         } catch (Exception $e) {
-            $this->getLogger()->error('Error running insert query: '.$e->getMessage());
-            $this->getLogger()->debug('Query: '.$e->getSql());
+            $this->getLogger()->error('Error running insert query: ' . $e->getMessage());
+            $this->getLogger()->debug('Query: ' . $e->getSql());
             $this->getLogger()->exception($e);
             return false;
         }
@@ -598,26 +293,13 @@ abstract class Model implements JsonSerializable, ArrayAccess
             return false;
         }
         ModelRepository::setInstance($this);
-        return true;
-    }
 
-    /**
-     * Clear cache for model queries (the Model::query() method)
-     *
-     * @return void
-     * @see Model::query()
-     *
-     */
-    public static function clearQueryCache() : void {
-        /** @var Cache $cache */
-        $cache = App::getService('cache');
-        $cache->clean(
-          [
-            CacheParent::Tags => [
-              static::TABLE.'/query',
-            ],
-          ]
-        );
+        foreach ($this::getAfterInsert() as $method) {
+            if (method_exists($this, $method)) {
+                $this->$method();
+            }
+        }
+        return true;
     }
 
     /**
@@ -627,7 +309,7 @@ abstract class Model implements JsonSerializable, ArrayAccess
      * @return array<string, mixed> data which can be serialized by <b>json_encode</b>,
      * which is a value of any type other than a resource.
      */
-    public function jsonSerialize() : array {
+    public function jsonSerialize(): array {
         $vars = get_object_vars($this);
         foreach ($this::JSON_EXCLUDE_PROPERTIES as $prop) {
             if (isset($vars[$prop])) {
@@ -640,7 +322,7 @@ abstract class Model implements JsonSerializable, ArrayAccess
     /**
      * @inheritdoc
      */
-    public function offsetGet($offset) : mixed {
+    public function offsetGet($offset): mixed {
         if ($this->offsetExists($offset)) {
             return $this->$offset;
         }
@@ -650,14 +332,14 @@ abstract class Model implements JsonSerializable, ArrayAccess
     /**
      * @inheritdoc
      */
-    public function offsetExists($offset) : bool {
+    public function offsetExists($offset): bool {
         return property_exists($this, $offset);
     }
 
     /**
      * @inheritdoc
      */
-    public function offsetSet($offset, $value) : void {
+    public function offsetSet($offset, $value): void {
         if (isset($offset) && $this->offsetExists($offset)) {
             $this->$offset = $value;
         }
@@ -666,7 +348,7 @@ abstract class Model implements JsonSerializable, ArrayAccess
     /**
      * @inheritdoc
      */
-    public function offsetUnset($offset) : void {
+    public function offsetUnset($offset): void {
         // Do nothing
     }
 
@@ -675,20 +357,44 @@ abstract class Model implements JsonSerializable, ArrayAccess
      *
      * @return bool
      */
-    public function delete() : bool {
+    public function delete(): bool {
         if (!isset($this->id)) {
             return false;
         }
-        $this->getLogger()->info('Delete model: '.$this::TABLE.' of ID: '.$this->id);
+        $this->getLogger()->info('Delete model: ' . $this::TABLE . ' of ID: ' . $this->id);
+
+        foreach ($this::getBeforeDelete() as $method) {
+            if (method_exists($this, $method)) {
+                $this->$method();
+            }
+        }
+
         try {
             DB::delete($this::TABLE, ['%n = %i', $this::getPrimaryKey(), $this->id]);
             ModelRepository::removeInstance($this);
-            $this->clearCache();
         } catch (Exception $e) {
             $this->getLogger()->error($e->getMessage());
             $this->getLogger()->debug($e->getTraceAsString());
             return false;
         }
+
+        foreach ($this::getAfterDelete() as $method) {
+            if (method_exists($this, $method)) {
+                $this->$method();
+            }
+        }
+
         return true;
+    }
+
+    /**
+     * @return non-empty-string[]
+     */
+    protected function getCacheTags(): array {
+        return array_merge(
+            ['models', $this::TABLE, $this::TABLE . '/' . $this->id],
+            $this::CACHE_TAGS,
+            $this->cacheTags,
+        );
     }
 }

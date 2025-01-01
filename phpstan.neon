@@ -7,4 +7,6 @@ parameters:
 	level: max
 	paths:
 		- src
+		- tests/bootstrap.php
+		- tests/Mocks
 	tmpDir: temp

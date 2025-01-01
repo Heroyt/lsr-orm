@@ -9,13 +9,12 @@ use Lsr\Orm\Model;
  */
 interface FactoryInterface
 {
-
     /**
      * @param  array<string, mixed>  $options
      *
      * @return T[]
      */
-    public static function getAll(array $options = []) : array;
+    public static function getAll(array $options = []): array;
 
     /**
      * @param  int  $id
@@ -23,6 +22,5 @@ interface FactoryInterface
      *
      * @return T|null
      */
-    public static function getById(int $id, array $options = []) : ?Model;
-
+    public static function getById(int $id, array $options = []): ?Model;
 }

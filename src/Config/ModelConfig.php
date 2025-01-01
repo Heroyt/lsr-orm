@@ -1,10 +1,12 @@
 <?php
 
-namespace Lsr\Orm;
+namespace Lsr\Orm\Config;
 
 use Lsr\Orm\Attributes\Factory;
-use Lsr\Orm\Attributes\ModelRelation;
+use Lsr\Orm\Attributes\Relations\ModelRelation;
 use Lsr\Orm\Interfaces\FactoryInterface;
+use Lsr\Orm\Model;
+use Lsr\Orm\LoadingType;
 
 /**
  * @phpstan-type FactoryConfig array{
@@ -36,7 +38,6 @@ use Lsr\Orm\Interfaces\FactoryInterface;
  */
 abstract class ModelConfig
 {
-
     public string $primaryKey;
 
     /** @var FactoryConfig|null */
@@ -45,15 +46,35 @@ abstract class ModelConfig
     /** @var array<string, PropertyConfig> */
     public array $properties = [];
 
-    private Factory $factory;
+    /** @var non-empty-string[] */
+    public array $beforeUpdate = [];
 
-    public function getFactory() : ?Factory {
-        if (!isset($this->factoryConfig)) {
-            return null;
-        }
+    /** @var non-empty-string[] */
+    public array $afterUpdate = [];
 
-        $this->factory ??= new Factory($this->factoryConfig['factoryClass'], $this->factoryConfig['defaultOptions']);
-        return $this->factory;
+    /** @var non-empty-string[] */
+    public array $beforeInsert = [];
+
+    /** @var non-empty-string[] */
+    public array $afterInsert = [];
+
+    /** @var non-empty-string[] */
+    public array $beforeDelete = [];
+
+    /** @var non-empty-string[] */
+    public array $afterDelete = [];
+
+    public ?Factory $factory {
+        get {
+    if (!isset($this->factoryConfig)) {
+        return null;
     }
 
+            $this->factory ??= new Factory(
+                $this->factoryConfig['factoryClass'],
+                $this->factoryConfig['defaultOptions']
+            );
+            return $this->factory;
+        }
+    }
 }
