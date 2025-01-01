@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Mocks\Models;
 
-use Lsr\Orm\Attributes\Relations\OneToMany;
 use Lsr\Orm\Attributes\PrimaryKey;
+use Lsr\Orm\Attributes\Relations\OneToMany;
 use Lsr\Orm\Model;
 use Lsr\Orm\ModelCollection;
 
@@ -16,6 +16,7 @@ class ModelA extends Model
 
     public string $name;
     public ?int $age = null;
+    public bool $verified = false;
 
     /**
      * @var ModelCollection<ModelB>

@@ -38,7 +38,7 @@ trait ModelFetch
      * @throws ModelNotFoundException
      * @throws ValidationException
      */
-    public function fetch(bool $refresh = false): void {
+    public function fetch(bool $refresh = false) : void {
         if (!isset($this->id) || $this->id <= 0) {
             throw new RuntimeException('Id needs to be set before fetching model\'s data.');
         }
@@ -51,7 +51,7 @@ trait ModelFetch
             $this->row = $row;
         }
         if (!isset($this->row)) {
-            throw new ModelNotFoundException(get_class($this) . ' model of ID ' . $this->id . ' was not found.');
+            throw new ModelNotFoundException(get_class($this).' model of ID '.$this->id.' was not found.');
         }
         $this->fillFromRow();
     }
@@ -61,7 +61,7 @@ trait ModelFetch
      * @throws ModelNotFoundException
      * @throws ValidationException
      */
-    protected function fillFromRow(): void {
+    protected function fillFromRow() : void {
         if (!isset($this->row)) {
             return;
         }
@@ -86,7 +86,8 @@ trait ModelFetch
 
             if (array_key_exists($name, $row)) {
                 $val = $row[$name];
-            } else {
+            }
+            else {
                 $snakeName = Strings::toSnakeCase($name);
                 if (!array_key_exists($snakeName, $row)) {
                     // TODO: Maybe throw an exception
@@ -114,11 +115,11 @@ trait ModelFetch
      * @return void
      * @throws ModelNotFoundException
      */
-    protected function processRelation(string $propertyName, array $relation, ?array $property = null): void {
+    protected function processRelation(string $propertyName, array $relation, ?array $property = null) : void {
         if (!isset($property)) {
             $property = $this::getProperties()[$propertyName] ?? null;
             if (!isset($property)) {
-                throw new UndefinedPropertyException('Undefined property ' . $this::class . '::$' . $propertyName);
+                throw new UndefinedPropertyException('Undefined property '.$this::class.'::$'.$propertyName);
             }
         }
 
@@ -179,7 +180,7 @@ trait ModelFetch
                 $factoryClosure = fn() => new ModelCollection(
                     $className::query()
                               ->where('%n = %i', $foreignKey, $id)
-                              ->cacheTags($this::TABLE . '/' . $this->id . '/relations')
+                        ->cacheTags($this::TABLE.'/'.$this->id.'/relations')
                               ->get()
                 );
 
@@ -203,7 +204,7 @@ trait ModelFetch
                 $factoryClosure = fn() => new ModelCollection(
                     $className::query()
                               ->where('%n IN %sql', $foreignKey, $connectionQuery)
-                              ->cacheTags($this::TABLE . '/' . $this->id . '/relations')
+                        ->cacheTags($this::TABLE.'/'.$this->id.'/relations')
                               ->get()
                 );
 
@@ -227,11 +228,11 @@ trait ModelFetch
      *
      * @return void
      */
-    protected function setProperty(string $name, mixed $value, ?array $property = null): void {
+    protected function setProperty(string $name, mixed $value, ?array $property = null) : void {
         if (empty($property)) {
             $property = $this::getProperties()[$name] ?? null;
             if (!isset($property)) {
-                throw new UndefinedPropertyException('Undefined property ' . $this::class . '::$' . $name);
+                throw new UndefinedPropertyException('Undefined property '.$this::class.'::$'.$name);
             }
         }
 
@@ -241,14 +242,16 @@ trait ModelFetch
                  * @var class-string<DateTimeInterface> $dateType
                  * @phpstan-ignore varTag.nativeType
                  */
-                $dateType = $property['type'] === DateTimeInterface::class ? DateTimeImmutable::class : $property['type'];
+                $dateType = $property['type'] === DateTimeInterface::class ? DateTimeImmutable::class :
+                    $property['type'];
                 if ($value instanceof DateInterval) {
                     $value = new $dateType($value->format('%H:%i:%s'));
-                } elseif (!($value instanceof DateTimeInterface)) {
+                }
+                else if (!($value instanceof DateTimeInterface)) {
                     $valueType = gettype($value);
                     $value = match ($valueType) {
                         'integer', 'string' => new $dateType($value),
-                        'NULL' => $property['allowsNull'] ? null : throw new RuntimeException(
+                        'NULL'  => $property['allowsNull'] ? null : throw new RuntimeException(
                             sprintf(
                                 'Cannot assign type "%s" to a non-nullable DateTime property (%s::%s)',
                                 $valueType,
@@ -256,7 +259,7 @@ trait ModelFetch
                                 $name,
                             )
                         ),
-                        default         => throw new RuntimeException(
+                        default => throw new RuntimeException(
                             sprintf(
                                 'Cannot assign type "%s" to a DateTime property (%s::%s)',
                                 $valueType,
@@ -287,6 +290,24 @@ trait ModelFetch
             }
         }
 
+        // Type cast for basic types
+        if ($property['isBuiltin']) {
+            switch ($property['type']) {
+                case 'int':
+                    $value = (int) $value;
+                    break;
+                case 'float':
+                    $value = (float) $value;
+                    break;
+                case 'string':
+                    $value = (string) $value;
+                    break;
+                case 'bool':
+                    $value = (bool) $value;
+                    break;
+            }
+        }
+
         $this->$name = $value;
     }
 
@@ -297,7 +318,7 @@ trait ModelFetch
      *
      * @return void
      */
-    protected function instantiateProperties(): void {
+    protected function instantiateProperties() : void {
         $properties = $this::getProperties();
         foreach ($properties as $propertyName => $property) {
             // If the property does not have the Instantiate attribute - skip
@@ -309,7 +330,7 @@ trait ModelFetch
             // Check type
             if (!$property['type']) {
                 throw new RuntimeException(
-                    'Cannot initialize property ' . static::class . '::' . $propertyName . ' with no type.'
+                    'Cannot initialize property '.static::class.'::'.$propertyName.' with no type.'
                 );
             }
             $className = $property['type'];
@@ -317,7 +338,7 @@ trait ModelFetch
                 // Built in types are not supported - string, int, float,...
                 // Non-built in types can also be interfaces or traits, which is invalid. The type needs to be an instantiable class.
                 throw new RuntimeException(
-                    'Cannot initialize property ' . static::class . '::' . $propertyName . ' with type ' . $property['type'] . '.'
+                    'Cannot initialize property '.static::class.'::'.$propertyName.' with type '.$property['type'].'.'
                 );
             }
             $this->$propertyName = new $className();

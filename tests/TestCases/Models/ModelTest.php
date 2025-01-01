@@ -88,7 +88,8 @@ class ModelTest extends TestCase
 			CREATE TABLE modelsA ( 
 			    model_a_id INTEGER PRIMARY KEY autoincrement NOT NULL , 
 			    name CHAR(60) NOT NULL, 
-			    age INT 
+			    age INT,
+			    verified INT DEFAULT 0 
 			);
 		"
             );
@@ -204,6 +205,7 @@ class ModelTest extends TestCase
                 'model_a_id' => 1,
                 'name'       => 'model1',
                 'age'        => 20,
+                'verified' => false,
             ]
         );
 
@@ -213,6 +215,7 @@ class ModelTest extends TestCase
                 'model_a_id' => 2,
                 'name'       => 'model2',
                 'age'        => null,
+                'verified' => true,
             ]
         );
 
@@ -529,7 +532,7 @@ class ModelTest extends TestCase
         $model->name = 'test';
         $model->age = 10;
 
-        self::assertEquals(['name' => 'test', 'age' => 10], $model->getQueryData());
+        self::assertEquals(['name' => 'test', 'age' => 10, 'verified' => false], $model->getQueryData());
 
         $model->id = 99;
 
@@ -650,6 +653,7 @@ class ModelTest extends TestCase
             'id'       => $model->id,
             'name'     => $model->name,
             'age'      => $model->age,
+            'verified' => $model->verified,
             'children' => $model->children,
         ];
 
