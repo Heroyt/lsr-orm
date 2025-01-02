@@ -147,6 +147,11 @@ trait ModelFetch
                     break;
                 }
 
+            if ($relation['factoryMethod'] !== null) {
+                $method = $relation['factoryMethod'];
+                $factoryClosure = fn() => $this->$method();
+            }
+            else {
                 $factoryClosure = static function () use ($factory, $id, $className, $property) {
                     try {
                         return isset($factory) ?
@@ -161,6 +166,7 @@ trait ModelFetch
                     // Default
                     return null;
                 };
+            }
 
                 if ($relation['loadingType'] === LoadingType::LAZY) {
                     $reflection = new ReflectionClass($className);
@@ -199,12 +205,18 @@ trait ModelFetch
                     $this->$propertyName = new $collectionClass();
                     break;
                 }
-                $factoryClosure = fn() => new $collectionClass(
-                    $className::query()
-                              ->where('%n = %i', $foreignKey, $id)
-                        ->cacheTags($this::TABLE.'/'.$this->id.'/relations')
-                              ->get()
-                );
+                if ($relation['factoryMethod'] !== null) {
+                    $method = $relation['factoryMethod'];
+                    $factoryClosure = fn() => $this->$method();
+                }
+                else {
+                    $factoryClosure = fn() => new $collectionClass(
+                        $className::query()
+                                  ->where('%n = %i', $foreignKey, $id)
+                                  ->cacheTags($this::TABLE.'/'.$this->id.'/relations')
+                                  ->get()
+                    );
+                }
 
                 if ($relation['loadingType'] === LoadingType::LAZY) {
                     $reflection = new ReflectionClass($collectionClass);
@@ -240,15 +252,21 @@ trait ModelFetch
                     $this->$propertyName = new $collectionClass();
                     break;
                 }
-                /** @var ManyToMany $attributeClass */
-                $attributeClass = unserialize($relation['instance'], ['allowedClasses' => [ManyToMany::class]]);
-                $connectionQuery = $attributeClass->getConnectionQuery($id, $className, $this);
-                $factoryClosure = fn() => new $collectionClass(
-                    $className::query()
-                        ->where('%n IN %sql', $className::getPrimaryKey(), $connectionQuery)
-                        ->cacheTags($this::TABLE.'/'.$this->id.'/relations')
-                              ->get()
-                );
+                if ($relation['factoryMethod'] !== null) {
+                    $method = $relation['factoryMethod'];
+                    $factoryClosure = fn() => $this->$method();
+                }
+                else {
+                    /** @var ManyToMany $attributeClass */
+                    $attributeClass = unserialize($relation['instance'], ['allowedClasses' => [ManyToMany::class]]);
+                    $connectionQuery = $attributeClass->getConnectionQuery($id, $className, $this);
+                    $factoryClosure = fn() => new $collectionClass(
+                        $className::query()
+                                  ->where('%n IN %sql', $className::getPrimaryKey(), $connectionQuery)
+                                  ->cacheTags($this::TABLE.'/'.$this->id.'/relations')
+                                  ->get()
+                    );
+                }
 
                 if ($relation['loadingType'] === LoadingType::LAZY) {
                     $reflection = new ReflectionClass($collectionClass);

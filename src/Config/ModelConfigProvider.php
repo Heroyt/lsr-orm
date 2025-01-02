@@ -302,7 +302,20 @@ trait ModelConfigProvider
                     'foreignKey'  => $foreignKey,
                     'localKey'    => $localKey,
                     'loadingType' => $attributeClass->loadingType,
+                    'factoryMethod' => $attributeClass->factoryMethod,
                 ];
+                if ($attributeClass->factoryMethod !== null && !static::getReflection()->hasMethod(
+                        $attributeClass->factoryMethod
+                    )) {
+                    throw new RuntimeException(
+                        sprintf(
+                            'Factory method "%s" does not exists on class "%s" for the relation on property "%s".',
+                            $attributeClass->factoryMethod,
+                            static::class,
+                            $propertyName
+                        )
+                    );
+                }
             }
         }
 

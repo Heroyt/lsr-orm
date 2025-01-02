@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 namespace Lsr\Orm\Attributes\Relations;
 
@@ -16,12 +17,14 @@ class OneToMany extends ModelRelation
      * @param  string  $localKey
      * @param  class-string<Model>|null  $class
      * @param  LoadingType  $loadingType
+     * @param  null|non-empty-string  $factoryMethod
      */
     public function __construct(
         public string      $foreignKey = '',
         public string      $localKey = '',
         public ?string     $class = null,
         public LoadingType $loadingType = LoadingType::LAZY,
+        public ?string $factoryMethod = null,
     ) {
     }
 

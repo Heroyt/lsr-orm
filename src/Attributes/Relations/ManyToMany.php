@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 namespace Lsr\Orm\Attributes\Relations;
 
@@ -19,6 +20,7 @@ class ManyToMany extends ModelRelation
      * @param  string  $localKey
      * @param  class-string<Model>|null  $class
      * @param  LoadingType  $loadingType
+     * @param  null|non-empty-string  $factoryMethod
      */
     public function __construct(
         public string      $through = '',
@@ -26,6 +28,7 @@ class ManyToMany extends ModelRelation
         public string      $localKey = '',
         public ?string     $class = null,
         public LoadingType $loadingType = LoadingType::LAZY,
+        public ?string $factoryMethod = null,
     ) {
     }
 
@@ -38,7 +41,7 @@ class ManyToMany extends ModelRelation
      *
      * @return Fluent
      */
-    public function getConnectionQuery(int $id, string | Model $targetClass, string | Model $class): Fluent {
+    public function getConnectionQuery(int $id, string | Model $targetClass, string | Model $class) : Fluent {
         return DB::select(
             $this->getThroughTableName($targetClass, $class),
             '%n as %n',
@@ -53,13 +56,13 @@ class ManyToMany extends ModelRelation
      * @param  class-string<Model>|Model  $class
      * @return string
      */
-    public function getThroughTableName(string | Model $targetClass, string | Model $class): string {
+    public function getThroughTableName(string | Model $targetClass, string | Model $class) : string {
         if (empty($this->through)) {
             /** @var non-empty-string $table */
             $table = $class::TABLE;
             /** @var non-empty-string $targetTable */
             $targetTable = $targetClass::TABLE;
-            $this->through = '::' . $table . '_' . $targetTable;
+            $this->through = '::'.$table.'_'.$targetTable;
         }
         return $this->through;
     }
@@ -70,7 +73,7 @@ class ManyToMany extends ModelRelation
      *
      * @return string
      */
-    public function getForeignKey(string | Model $targetClass, string | Model $class): string {
+    public function getForeignKey(string | Model $targetClass, string | Model $class) : string {
         if (empty($this->foreignKey)) {
             $this->foreignKey = $targetClass::getPrimaryKey();
         }
@@ -83,7 +86,7 @@ class ManyToMany extends ModelRelation
      *
      * @return string
      */
-    public function getLocalKey(string | Model $targetClass, string | Model $class): string {
+    public function getLocalKey(string | Model $targetClass, string | Model $class) : string {
         if (empty($this->localKey)) {
             $this->localKey = $class::getPrimaryKey();
         }
@@ -96,16 +99,16 @@ class ManyToMany extends ModelRelation
      *
      * @return Fluent
      */
-    public function getInsertQuery(array $targetClasses, Model $class): Fluent {
+    public function getInsertQuery(array $targetClasses, Model $class) : Fluent {
         $data = [];
         foreach ($targetClasses as $targetClass) {
             $data[] = [
-              $this->getLocalKey($targetClass, $class)   => $class->id,
-              $this->getForeignKey($targetClass, $class) => $targetClass->id,
+                $this->getLocalKey($targetClass, $class)   => $class->id,
+                $this->getForeignKey($targetClass, $class) => $targetClass->id,
             ];
         }
         return DB::insertGet(
-            $this->through,
+               $this->through,
             ...$data
         );
     }

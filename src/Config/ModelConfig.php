@@ -5,8 +5,8 @@ namespace Lsr\Orm\Config;
 use Lsr\Orm\Attributes\Factory;
 use Lsr\Orm\Attributes\Relations\ModelRelation;
 use Lsr\Orm\Interfaces\FactoryInterface;
-use Lsr\Orm\Model;
 use Lsr\Orm\LoadingType;
+use Lsr\Orm\Model;
 
 /**
  * @phpstan-type FactoryConfig array{
@@ -20,7 +20,8 @@ use Lsr\Orm\LoadingType;
  *     factory: class-string|null,
  *     foreignKey: string,
  *     localKey: string,
- *     loadingType: LoadingType
+ *     loadingType: LoadingType,
+ *     factoryMethod: string|null
  * }
  * @phpstan-type PropertyConfig array{
  *     name:string,
