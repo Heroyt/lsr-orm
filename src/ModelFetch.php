@@ -178,15 +178,17 @@ trait ModelFetch
                 if (
                     isset($property['type'])
                     && $property['type'] !== $collectionClass
+                    && class_exists($property['type'])
                 ) {
-                    if (!is_a($property['type'], $collectionClass)) {
+                    if (!is_subclass_of($property['type'], ModelCollection::class)) {
                         throw new \RuntimeException(
                             sprintf(
-                                'Invalid property type %s for relation type %s on %s::$%s',
+                                'Invalid property type %s for relation type %s on %s::$%s (must extend %s)',
                                 $property['type'],
                                 $relation['type'],
                                 $this::class,
-                                $propertyName
+                                $propertyName,
+                                ModelCollection::class,
                             )
                         );
                     }
@@ -218,15 +220,17 @@ trait ModelFetch
                 if (
                     isset($property['type'])
                     && $property['type'] !== $collectionClass
+                    && class_exists($property['type'])
                 ) {
-                    if (!is_a($property['type'], $collectionClass)) {
+                    if (!is_subclass_of($property['type'], $collectionClass)) {
                         throw new \RuntimeException(
                             sprintf(
-                                'Invalid property type %s for relation type %s on %s::$%s',
+                                'Invalid property type %s for relation type %s on %s::$%s (must extend %s)',
                                 $property['type'],
                                 $relation['type'],
                                 $this::class,
-                                $propertyName
+                                $propertyName,
+                                ModelCollection::class,
                             )
                         );
                     }
@@ -241,7 +245,7 @@ trait ModelFetch
                 $connectionQuery = $attributeClass->getConnectionQuery($id, $className, $this);
                 $factoryClosure = fn() => new $collectionClass(
                     $className::query()
-                              ->where('%n IN %sql', $foreignKey, $connectionQuery)
+                        ->where('%n IN %sql', $className::getPrimaryKey(), $connectionQuery)
                         ->cacheTags($this::TABLE.'/'.$this->id.'/relations')
                               ->get()
                 );

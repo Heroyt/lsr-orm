@@ -39,7 +39,12 @@ class ManyToMany extends ModelRelation
      * @return Fluent
      */
     public function getConnectionQuery(int $id, string | Model $targetClass, string | Model $class): Fluent {
-        return DB::select($this->getThroughTableName($targetClass, $class), $this->getForeignKey($targetClass, $class))
+        return DB::select(
+            $this->getThroughTableName($targetClass, $class),
+            '%n as %n',
+            $this->getForeignKey($targetClass, $class),
+            $targetClass::getPrimaryKey(),
+        )
                  ->where('%n = %i', $this->getLocalKey($targetClass, $class), $id);
     }
 
