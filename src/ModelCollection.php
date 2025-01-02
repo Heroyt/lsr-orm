@@ -9,6 +9,7 @@ use Countable;
 use Iterator;
 use JsonSerializable;
 use Lsr\Orm\Exceptions\InvalidCollectionModelException;
+use RuntimeException;
 
 /**
  * @template T of Model
@@ -18,57 +19,60 @@ use Lsr\Orm\Exceptions\InvalidCollectionModelException;
 class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializable
 {
     public const string UNKNOWN_MODEL = 'unknown';
-
+    /** @var array<int,T> $models */
+    public array $models = [];
     /**
      * @var class-string<T>|'unknown'
-     * @phpstan-ignore property.onlyRead
      */
     private string $modelClass {
         get {
-    if (!isset($this->modelClass) || $this->modelClass === self::UNKNOWN_MODEL) {
-        if (empty($this->models)) {
-            $this->modelClass = self::UNKNOWN_MODEL;
-            return $this->modelClass;
-        }
-        /** @phpstan-ignore assign.propertyType, classConstant.nonObject */
-        $this->modelClass = first($this->models)::class;
-    }
+            if (!isset($this->modelClass) || $this->modelClass === self::UNKNOWN_MODEL) {
+                if (empty($this->models)) {
+                    $this->modelClass = self::UNKNOWN_MODEL;
+                    return $this->modelClass;
+                }
+                /** @phpstan-ignore assign.propertyType, classConstant.nonObject */
+                $this->modelClass = first($this->models)::class;
+            }
             return $this->modelClass;
         }
     }
 
     /**
-     * @param  array<int,T>  $models
+     * @param  array<int,T>|ModelCollection<T>  $models
+     * @param  non-empty-string  $keyProperty
      */
     public function __construct(
-        public array $models = [],
+        array | ModelCollection $models = [],
+        protected string        $keyProperty = 'id',
     ) {
+        $this->models = $models instanceof self ? $models->models : $models;
     }
 
-    public function count(): int {
+    public function count() : int {
         return count($this->models);
     }
 
     /**
      * @return T|false
      */
-    public function current(): mixed {
+    public function current() : mixed {
         return current($this->models);
     }
 
-    public function next(): void {
+    public function next() : void {
         next($this->models);
     }
 
-    public function key(): ?int {
+    public function key() : ?int {
         return key($this->models);
     }
 
-    public function valid(): bool {
+    public function valid() : bool {
         return isset($this->models[key($this->models)]);
     }
 
-    public function rewind(): void {
+    public function rewind() : void {
         reset($this->models);
     }
 
@@ -76,7 +80,7 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @param  int  $offset
      * @return bool
      */
-    public function offsetExists(mixed $offset): bool {
+    public function offsetExists(mixed $offset) : bool {
         return isset($this->models[$offset]);
     }
 
@@ -84,7 +88,7 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @param  int  $offset
      * @return T
      */
-    public function offsetGet(mixed $offset): mixed {
+    public function offsetGet(mixed $offset) : mixed {
         return $this->models[$offset];
     }
 
@@ -93,7 +97,7 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @param  T  $value
      * @return void
      */
-    public function offsetSet(mixed $offset, mixed $value): void {
+    public function offsetSet(mixed $offset, mixed $value) : void {
         if (
             $this->modelClass !== self::UNKNOWN_MODEL
             && !($value instanceof $this->modelClass)
@@ -110,11 +114,11 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @param  int  $offset
      * @return void
      */
-    public function offsetUnset(mixed $offset): void {
+    public function offsetUnset(mixed $offset) : void {
         unset($this->models[$offset]);
     }
 
-    public function jsonSerialize(): mixed {
+    public function jsonSerialize() : mixed {
         return $this->models;
     }
 
@@ -122,7 +126,7 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @param  callable(T $model):bool|null  $filter
      * @return T|null
      */
-    public function first(?callable $filter = null): ?Model {
+    public function first(?callable $filter = null) : ?Model {
         if ($filter === null) {
             return first($this->models);
         }
@@ -133,7 +137,7 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @param  callable(T $model):bool|null  $filter
      * @return T|null
      */
-    public function last(?callable $filter = null): ?Model {
+    public function last(?callable $filter = null) : ?Model {
         if ($filter === null) {
             /** @phpstan-ignore return.type */
             return last($this->models);
@@ -148,7 +152,7 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @param  callable(T $model):bool  $filter
      * @return ModelCollection<T>
      */
-    public function filter(callable $filter): ModelCollection {
+    public function filter(callable $filter) : ModelCollection {
         return new ModelCollection(array_filter($this->models, $filter));
     }
 
@@ -157,7 +161,7 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @param  callable(T $model):R  $function
      * @return R[]
      */
-    public function map(callable $function): array {
+    public function map(callable $function) : array {
         return array_map($function, $this->models);
     }
 
@@ -165,7 +169,7 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @param  T  $model
      * @return $this
      */
-    public function add(Model $model): ModelCollection {
+    public function add(Model $model) : ModelCollection {
         if (
             $this->modelClass !== self::UNKNOWN_MODEL
             && !($model instanceof $this->modelClass)
@@ -175,13 +179,18 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
                 InvalidCollectionModelException::INVALID_MODEL_TYPE_CODE
             );
         }
-        if ($model->id === null) {
+
+        if (!property_exists($model, $this->keyProperty)) {
+            throw new RuntimeException('Property "'.$this->keyProperty.'" does not exist on '.$model::class);
+        }
+
+        if ($model->{$this->keyProperty} === null) {
             throw new InvalidCollectionModelException(
                 'Cannot add an uninitialized model (without ID) to a collection.',
                 InvalidCollectionModelException::UNINITIALIZED_MODEL_CODE
             );
         }
-        $this->models[$model->id] = $model;
+        $this->models[$model->{$this->keyProperty}] = $model;
         return $this;
     }
 
@@ -189,17 +198,22 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @param  T  $model
      * @return $this
      */
-    public function remove(Model $model): ModelCollection {
+    public function remove(Model $model) : ModelCollection {
         if ($this->modelClass !== self::UNKNOWN_MODEL && !($model instanceof $this->modelClass)) {
             throw new InvalidCollectionModelException(
                 sprintf('Invalid model type for the collection (collection class: "%s")', $this->modelClass),
                 InvalidCollectionModelException::INVALID_MODEL_TYPE_CODE
             );
         }
-        if ($model->id === null || !isset($this->models[$model->id])) {
+
+        if (!property_exists($model, $this->keyProperty)) {
+            throw new RuntimeException('Property "'.$this->keyProperty.'" does not exist on '.$model::class);
+        }
+
+        if ($model->{$this->keyProperty} === null || !isset($this->models[$model->{$this->keyProperty}])) {
             return $this;
         }
-        unset($this->models[$model->id]);
+        unset($this->models[$model->{$this->keyProperty}]);
         return $this;
     }
 }
