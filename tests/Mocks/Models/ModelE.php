@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Mocks\Models;
 
-use Lsr\Orm\Attributes\Relations\ManyToMany;
 use Lsr\Orm\Attributes\PrimaryKey;
+use Lsr\Orm\Attributes\Relations\ManyToMany;
+use Lsr\Orm\LoadingType;
 use Lsr\Orm\Model;
 use Lsr\Orm\ModelCollection;
 
@@ -17,6 +18,6 @@ class ModelE extends Model
     public string $name;
 
     /** @var ModelCollection<ModelD> */
-    #[ManyToMany('modelsD_modelsE', class: ModelD::class)]
+    #[ManyToMany('modelsD_modelsE', class: ModelD::class, loadingType: LoadingType::EAGER)]
     public ModelCollection $models;
 }

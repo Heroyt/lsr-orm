@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Mocks\Models;
 
-use Lsr\Orm\Attributes\Relations\ManyToOne;
-use Lsr\Orm\Attributes\Relations\OneToMany;
 use Lsr\Orm\Attributes\PrimaryKey;
+use Lsr\Orm\Attributes\Relations\OneToMany;
+use Lsr\Orm\LoadingType;
 use Lsr\Orm\Model;
 use Lsr\Orm\ModelCollection;
 
@@ -22,6 +22,6 @@ class ModelCB extends Model
     public ModelCollection $children;
 
     /** @var ModelCollection<ModelCC>  */
-    #[OneToMany(class: ModelCC::class)]
+    #[OneToMany(class: ModelCC::class, loadingType: LoadingType::EAGER)]
     public ModelCollection $childrenC;
 }
