@@ -133,13 +133,14 @@ trait ModelFetch
         switch ($relation['type']) {
             case ManyToOne::class:
             case OneToOne::class:
-                /** @var int|null $id */ $id = $this->row?->$localKey;
+            /** @var int|null $id */
+            $id = $this->row?->$localKey;
                 if (isset($id)) {
                     $this->relationIds[$propertyName] = $id;
                 }
 
                 // Check for nullable relations
-                if (is_null($id)) {
+            if (is_null($id) && $relation['factoryMethod'] === null) {
                     if (!$property['allowsNull']) {
                         throw new ValidationException('Cannot assign null to a non nullable relation');
                     }
