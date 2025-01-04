@@ -17,6 +17,7 @@ use Lsr\Helpers\Tools\Strings;
 use Lsr\Logging\Exceptions\DirectoryCreationException;
 use Lsr\Logging\Logger;
 use Lsr\ObjectValidation\Validator;
+use Lsr\Orm\Attributes\JsonExclude;
 use Lsr\Orm\Attributes\NoDB;
 use Lsr\Orm\Attributes\Relations\ManyToOne;
 use Lsr\Orm\Attributes\Relations\OneToOne;
@@ -25,6 +26,7 @@ use Lsr\Orm\Config\ModelConfigProvider;
 use Lsr\Orm\Exceptions\ModelNotFoundException;
 use Lsr\Orm\Exceptions\ValidationException;
 use Lsr\Orm\Interfaces\InsertExtendInterface;
+use ReflectionProperty;
 
 /**
  * @implements ArrayAccess<string, mixed>
@@ -310,13 +312,19 @@ abstract class Model implements JsonSerializable, ArrayAccess
      * which is a value of any type other than a resource.
      */
     public function jsonSerialize(): array {
-        $vars = get_object_vars($this);
-        foreach ($this::JSON_EXCLUDE_PROPERTIES as $prop) {
-            if (isset($vars[$prop])) {
-                unset($vars[$prop]);
+        $data = [];
+        $reflection = new \ReflectionClass($this);
+        foreach ($reflection->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
+            $propertyName = $property->getName();
+            if (
+                in_array($propertyName, $this::JSON_EXCLUDE_PROPERTIES, true)
+                || !empty($property->getAttributes(JsonExclude::class))
+            ) {
+                continue;
             }
+            $data[$propertyName] = $property->getValue($this);
         }
-        return $vars;
+        return $data;
     }
 
     /**

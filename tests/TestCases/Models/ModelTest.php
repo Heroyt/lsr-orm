@@ -650,11 +650,11 @@ class ModelTest extends TestCase
     public function testJsonSerialize(): void {
         $model = ModelA::get(1);
         $expected = [
-            'id'       => $model->id,
             'name'     => $model->name,
             'age'      => $model->age,
             'verified' => $model->verified,
             'children' => $model->children,
+            'id'       => $model->id,
         ];
 
         // Test data
