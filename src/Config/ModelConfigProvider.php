@@ -230,6 +230,7 @@ trait ModelConfigProvider
                 'noDb'         => !empty($property->getAttributes(NoDB::class)),
                 'type'         => null,
                 'relation'     => null,
+                'isVirtual'    => $property->isVirtual(),
             ];
             if ($property->hasType()) {
                 // Check enum and date values

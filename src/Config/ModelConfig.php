@@ -34,7 +34,8 @@ use Lsr\Orm\Model;
  *     instantiate: bool,
  *     noDb: bool,
  *     type: class-string|string,
- *     relation:null|RelationConfig
+ *     relation:null|RelationConfig,
+ *     isVirtual?: bool,
  * }
  */
 abstract class ModelConfig
