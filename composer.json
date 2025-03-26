@@ -1,7 +1,7 @@
 {
   "name": "lsr/orm",
   "description": "Laser framework core - ORM",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "repositories": [
     {
       "type": "composer",
