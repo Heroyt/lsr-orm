@@ -214,7 +214,11 @@ abstract class Model implements JsonSerializable, ArrayAccess
         $data = [];
 
         foreach ($this::getProperties() as $propertyName => $property) {
-            if ($property['noDb'] || (!isset($this->$propertyName) && $property['isPrimaryKey'])) {
+            if (
+                $property['noDb']
+                || ($property['isVirtual'] ?? false)
+                || (!isset($this->$propertyName) && $property['isPrimaryKey'])
+            ) {
                 continue;
             }
 
@@ -260,6 +264,11 @@ abstract class Model implements JsonSerializable, ArrayAccess
             if ($property['isEnum']) {
                 assert($this->$propertyName instanceof BackedEnum);
                 $data[$columnName] = $this->$propertyName->value;
+                continue;
+            }
+
+            // Check type
+            if (in_array($property['type'], ['array', 'object'], true)) {
                 continue;
             }
 
