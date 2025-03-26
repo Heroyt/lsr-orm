@@ -74,7 +74,9 @@ trait ModelFetch
                 $reflection = new ReflectionClass($class);
 
                 $this->$name = $reflection->newLazyProxy(
-                    fn() => $class::parseRow($this->row) // @phpstan-ignore argument.type
+                    fn(InsertExtendInterface $proxy) => $this->row !== null ?
+                        ($class::parseRow($this->row) ?? $proxy)
+                        : $proxy
                 );
                 continue;
             }
@@ -135,12 +137,12 @@ trait ModelFetch
             case OneToOne::class:
             /** @var int|null $id */
             $id = $this->row?->$localKey;
-                if (isset($id)) {
+            if ($id !== null) {
                     $this->relationIds[$propertyName] = $id;
                 }
 
                 // Check for nullable relations
-            if (is_null($id) && $relation['factoryMethod'] === null) {
+            if ($id === null && $relation['factoryMethod'] === null) {
                     if (!$property['allowsNull']) {
                         throw new ValidationException('Cannot assign null to a non nullable relation');
                     }
@@ -150,10 +152,25 @@ trait ModelFetch
 
             if ($relation['factoryMethod'] !== null) {
                 $method = $relation['factoryMethod'];
+                /**
+                 * @return Model|null
+                 */
                 $factoryClosure = fn() => $this->$method();
             }
             else {
-                $factoryClosure = static function () use ($factory, $id, $className, $property) {
+                /**
+                 * @return Model|null
+                 * @throws ModelNotFoundException
+                 */
+                $factoryClosure = function () use ($factory, $id, $className, $property) {
+                    if ($id === null) {
+                        if (!$property['allowsNull']) {
+                            throw new ModelNotFoundException(
+                                'Cannot find model '.$className.' (in relation '.($this::class).'::$'.$property['name'].') for null id'
+                            );
+                        }
+                        return null;
+                    }
                     try {
                         return isset($factory) ?
                             $factory->factoryClass::getById($id, $factory->defaultOptions)
@@ -171,6 +188,7 @@ trait ModelFetch
 
                 if ($relation['loadingType'] === LoadingType::LAZY) {
                     $reflection = new ReflectionClass($className);
+                    /** @phpstan-ignore argument.type */
                     $this->$propertyName = $reflection->newLazyProxy($factoryClosure);
                     break;
                 }
@@ -180,15 +198,14 @@ trait ModelFetch
                 break;
             case OneToMany::class:
                 $id = $this->id;
-                /** @var class-string<ModelCollection> $collectionClass */
+                /** @var class-string<ModelCollection<Model>> $collectionClass */ // @phpstan-ignore varTag.nativeType
                 $collectionClass = ModelCollection::class;
                 if (
-                    isset($property['type'])
-                    && $property['type'] !== $collectionClass
+                    $property['type'] !== $collectionClass
                     && class_exists($property['type'])
                 ) {
                     if (!is_subclass_of($property['type'], ModelCollection::class)) {
-                        throw new \RuntimeException(
+                        throw new RuntimeException(
                             sprintf(
                                 'Invalid property type %s for relation type %s on %s::$%s (must extend %s)',
                                 $property['type'],
@@ -208,9 +225,15 @@ trait ModelFetch
                 }
                 if ($relation['factoryMethod'] !== null) {
                     $method = $relation['factoryMethod'];
+                    /**
+                     * @return ModelCollection<Model>
+                     */
                     $factoryClosure = fn() => $this->$method();
                 }
                 else {
+                    /**
+                     * @return ModelCollection<Model>
+                     */
                     $factoryClosure = fn() => new $collectionClass(
                         $className::query()
                                   ->where('%n = %i', $foreignKey, $id)
@@ -221,6 +244,7 @@ trait ModelFetch
 
                 if ($relation['loadingType'] === LoadingType::LAZY) {
                     $reflection = new ReflectionClass($collectionClass);
+                    /** @phpstan-ignore argument.type */
                     $this->$propertyName = $reflection->newLazyProxy($factoryClosure);
                     break;
                 }
@@ -228,15 +252,14 @@ trait ModelFetch
                 break;
             case ManyToMany::class:
                 $id = $this->id;
-                /** @var class-string<ModelCollection> $collectionClass */
+                /** @var class-string<ModelCollection<Model>> $collectionClass */  // @phpstan-ignore varTag.nativeType
                 $collectionClass = ModelCollection::class;
                 if (
-                    isset($property['type'])
-                    && $property['type'] !== $collectionClass
+                    $property['type'] !== $collectionClass
                     && class_exists($property['type'])
                 ) {
                     if (!is_subclass_of($property['type'], $collectionClass)) {
-                        throw new \RuntimeException(
+                        throw new RuntimeException(
                             sprintf(
                                 'Invalid property type %s for relation type %s on %s::$%s (must extend %s)',
                                 $property['type'],
@@ -255,12 +278,18 @@ trait ModelFetch
                 }
                 if ($relation['factoryMethod'] !== null) {
                     $method = $relation['factoryMethod'];
+                    /**
+                     * @return ModelCollection<Model>
+                     */
                     $factoryClosure = fn() => $this->$method();
                 }
                 else {
                     /** @var ManyToMany $attributeClass */
                     $attributeClass = unserialize($relation['instance'], ['allowedClasses' => [ManyToMany::class]]);
                     $connectionQuery = $attributeClass->getConnectionQuery($id, $className, $this);
+                    /**
+                     * @return ModelCollection<Model>
+                     */
                     $factoryClosure = fn() => new $collectionClass(
                         $className::query()
                                   ->where('%n IN %sql', $className::getPrimaryKey(), $connectionQuery)
@@ -271,6 +300,7 @@ trait ModelFetch
 
                 if ($relation['loadingType'] === LoadingType::LAZY) {
                     $reflection = new ReflectionClass($collectionClass);
+                    /** @phpstan-ignore argument.type */
                     $this->$propertyName = $reflection->newLazyProxy($factoryClosure);
                     break;
                 }
@@ -354,12 +384,15 @@ trait ModelFetch
         if ($property['isBuiltin']) {
             switch ($property['type']) {
                 case 'int':
+                    assert(is_numeric($value) || $value === null);
                     $value = (int) $value;
                     break;
                 case 'float':
+                    assert(is_numeric($value));
                     $value = (float) $value;
                     break;
                 case 'string':
+                    /** @phpstan-ignore cast.string */
                     $value = (string) $value;
                     break;
                 case 'bool':

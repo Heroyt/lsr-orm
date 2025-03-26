@@ -184,13 +184,15 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
             throw new RuntimeException('Property "'.$this->keyProperty.'" does not exist on '.$model::class);
         }
 
-        if ($model->{$this->keyProperty} === null) {
+        /** @var int|null $id */
+        $id = $model->{$this->keyProperty};
+        if ($id === null) {
             throw new InvalidCollectionModelException(
                 'Cannot add an uninitialized model (without ID) to a collection.',
                 InvalidCollectionModelException::UNINITIALIZED_MODEL_CODE
             );
         }
-        $this->models[$model->{$this->keyProperty}] = $model;
+        $this->models[$id] = $model;
         return $this;
     }
 

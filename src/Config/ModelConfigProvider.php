@@ -147,8 +147,15 @@ trait ModelConfigProvider
             static::createConfigModel();
         }
 
-        /** @phpstan-ignore assign.propertyType */
-        ModelRepository::$modelConfig[static::class] = require static::getCacheFileName();
+        if (class_exists(static::getCacheClassName())) {
+            /** @var class-string<ModelConfig> $className */
+            $className = static::getCacheClassName();
+            ModelRepository::$modelConfig[static::class] = new $className;
+        }
+        else {
+            /** @phpstan-ignore assign.propertyType */
+            ModelRepository::$modelConfig[static::class] = require static::getCacheFileName();
+        }
         $config = ModelRepository::$modelConfig[static::class];
         assert($config instanceof ModelConfig);
         return $config;
@@ -217,10 +224,13 @@ trait ModelConfigProvider
     protected static function findProperties() : array {
         $properties = [];
         foreach (static::getPropertyReflections(ReflectionProperty::IS_PUBLIC) as $property) {
+            if ($property->isStatic()) {
+                continue;
+            }
             $propertyName = $property->getName();
             $properties[$propertyName] = [
                 'name'         => $propertyName,
-                'isPrimaryKey' => $propertyName === static::findPrimaryKey(),
+                'isPrimaryKey' => $propertyName === 'id' || $propertyName === static::findPrimaryKey(),
                 'allowsNull'   => false,
                 'isBuiltin'    => false,
                 'isExtend'     => false,
@@ -353,8 +363,10 @@ trait ModelConfigProvider
      */
     protected static function getReflection() : ReflectionClass {
         if (!isset(ModelRepository::$reflections[static::class])) {
-            ModelRepository::$reflections[static::class] = (new ReflectionClass(static::class));
+            /** @phpstan-ignore assign.propertyType */
+            ModelRepository::$reflections[static::class] = new ReflectionClass(static::class);
         }
+        /** @phpstan-ignore return.type */
         return ModelRepository::$reflections[static::class];
     }
 

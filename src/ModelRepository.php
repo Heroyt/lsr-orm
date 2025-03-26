@@ -32,7 +32,7 @@ final class ModelRepository
     /** @var string[] Primary key cache */
     public static array $primaryKeys = [];
 
-    /** @var ReflectionClass<Model>[] */
+    /** @var array<class-string<Model>,ReflectionClass<Model>> */
     public static array $reflections = [];
     /** @var Factory[] */
     public static array $factory = [];
