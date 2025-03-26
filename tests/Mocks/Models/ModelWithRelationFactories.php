@@ -34,18 +34,18 @@ class ModelWithRelationFactories extends Model
     #[ManyToMany(class: ModelWithRelationFactories::class, factoryMethod: 'findCollection')]
     public ModelCollection $manyToMany;
 
-    #[OneToOne(factoryMethod: 'findParent', loadingType: LoadingType::EAGER)]
+    #[OneToOne(loadingType: LoadingType::EAGER, factoryMethod: 'findParent')]
     public ?ModelWithRelationFactories $parentEager;
 
-    #[ManyToOne(factoryMethod: 'findParent', loadingType: LoadingType::EAGER)]
+    #[ManyToOne(loadingType: LoadingType::EAGER, factoryMethod: 'findParent')]
     public ?ModelWithRelationFactories $parent2Eager;
 
     /** @var ModelCollection<ModelWithRelationFactories> */
-    #[OneToMany(factoryMethod: 'findCollection', class: ModelWithRelationFactories::class, loadingType: LoadingType::EAGER)]
+    #[OneToMany(class: ModelWithRelationFactories::class, loadingType: LoadingType::EAGER, factoryMethod: 'findCollection')]
     public ModelCollection $oneToManyEager;
 
     /** @var ModelCollection<ModelWithRelationFactories> */
-    #[ManyToMany(factoryMethod: 'findCollection', class: ModelWithRelationFactories::class, loadingType: LoadingType::EAGER)]
+    #[ManyToMany(class: ModelWithRelationFactories::class, loadingType: LoadingType::EAGER, factoryMethod: 'findCollection')]
     public ModelCollection $manyToManyEager;
 
 
@@ -57,6 +57,9 @@ class ModelWithRelationFactories extends Model
         return $model;
     }
 
+    /**
+     * @return ModelCollection<ModelWithRelationFactories>
+     */
     public function findCollection() : ModelCollection {
         $model = new ModelWithRelationFactories();
         $model->id = 9999;

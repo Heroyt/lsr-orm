@@ -180,12 +180,6 @@ class ModelTest extends TestCase
         }
         $this->refreshData();
 
-        $files = glob(TMP_DIR . 'models/*');
-        assert($files !== false);
-        foreach ($files as $file) {
-            unlink($file);
-        }
-
         parent::setUp();
     }
 

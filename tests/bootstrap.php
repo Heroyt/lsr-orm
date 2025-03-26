@@ -5,6 +5,8 @@
 /** @noinspection PhpIllegalPsrClassPathInspection */
 
 
+use Lsr\Orm\ModelRepository;
+
 define('ROOT', dirname(__DIR__) . '/');
 const TMP_DIR = ROOT . 'tests/tmp/';
 const LOG_DIR = ROOT . 'tests/logs/';
@@ -48,8 +50,10 @@ if (!file_exists(ROOT . "tests/tmp/dbc.db")) {
 }
 
 // Clear model cache
-$files = glob(TMP_DIR . 'models/*');
-assert(is_array($files));
-foreach ($files as $file) {
-    unlink($file);
+ModelRepository::$modelConfig = [];
+$files = glob(TMP_DIR.'models/*.php');
+if ($files !== false) {
+    foreach ($files as $file) {
+        unlink($file);
+    }
 }

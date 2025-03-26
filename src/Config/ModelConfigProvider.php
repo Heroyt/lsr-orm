@@ -138,7 +138,7 @@ trait ModelConfigProvider
      *
      * @return ModelConfig
      */
-    protected static function getModelConfig() : ModelConfig {
+    public static function getModelConfig() : ModelConfig {
         if (isset(ModelRepository::$modelConfig[static::class])) {
             return ModelRepository::$modelConfig[static::class];
         }
