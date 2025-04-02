@@ -13,6 +13,7 @@ use Lsr\Orm\Model;
 
 abstract class BaseModel extends Model
 {
+    use WithHooks;
     public static int $beforeUpdateCounter = 0;
     public static int $afterUpdateCounter = 0;
     public static int $beforeInsertCounter = 0;

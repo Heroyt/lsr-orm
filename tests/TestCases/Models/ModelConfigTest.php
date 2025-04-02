@@ -21,7 +21,7 @@ class ModelConfigTest extends TestCase
         }
     }
 
-    public function testConfig() : void {
+    public function testConfigProperties() : void {
         $config = ModelFromBase::getModelConfig();
 
         $this->assertSame('id_model_from_base', $config->primaryKey);
@@ -98,6 +98,10 @@ class ModelConfigTest extends TestCase
         $this->assertNull($config->properties['noDB']['relation']);
         $this->assertNull($config->properties['virtual']['relation']);
         $this->assertNull($config->properties['virtualNoDb']['relation']);
+    }
+
+    public function testConfigHooks() : void {
+        $config = ModelFromBase::getModelConfig();
 
         // Hooks
         $this->assertNotEmpty($config->beforeUpdate);
@@ -106,6 +110,22 @@ class ModelConfigTest extends TestCase
         $this->assertNotEmpty($config->afterInsert);
         $this->assertNotEmpty($config->beforeDelete);
         $this->assertNotEmpty($config->afterDelete);
+
+        $this->assertContains('setUpdatedAt', $config->beforeUpdate);
+        $this->assertContains('doSomethingBeforeUpdate', $config->beforeUpdate);
+
+        $this->assertContains('clearCache', $config->afterUpdate);
+        $this->assertContains('doSomethingAfterUpdate', $config->afterUpdate);
+
+        $this->assertContains('doSomethingBeforeInsert', $config->beforeInsert);
+
+        $this->assertContains('doSomethingAfterInsert', $config->afterInsert);
+        $this->assertContains('clearCache', $config->afterInsert);
+
+        $this->assertContains('doSomethingBeforeDelete', $config->beforeDelete);
+
+        $this->assertContains('doSomethingAfterDelete', $config->afterDelete);
+        $this->assertContains('clearCache', $config->afterDelete);
     }
 
 }
