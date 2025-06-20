@@ -467,7 +467,7 @@ class ModelTest extends TestCase
 
         // Eager model should update its relation normally
         $modelEager->parent = $parent2;
-        $data = $modelEager->getQueryData();
+        $data = $modelEager->getQueryData(false);
         self::assertEquals(2, $data['model_a_id']);
         self::assertArrayHasKey('model_a_id', $data);
         self::assertTrue($modelEager->save());
@@ -475,7 +475,7 @@ class ModelTest extends TestCase
         self::assertEquals(2, $testId);
 
         // Save without setting any parent (parent parameter is not set) should not change its value
-        $data = $modelLazy->getQueryData();
+        $data = $modelLazy->getQueryData(false);
         // @phpstan-ignore argument.type
         self::assertArrayHasKey('model_a_id', $data, json_encode($data));
         self::assertTrue($modelLazy->save());
@@ -484,7 +484,7 @@ class ModelTest extends TestCase
 
         // After setting the value, it should behave as expected
         $modelLazy->parent = $parent2;
-        $data = $modelLazy->getQueryData();
+        $data = $modelLazy->getQueryData(false);
         self::assertArrayHasKey('model_a_id', $data);
         self::assertEquals(2, $data['model_a_id']);
         self::assertTrue($modelLazy->save());

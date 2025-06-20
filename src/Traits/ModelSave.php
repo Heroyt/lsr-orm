@@ -61,13 +61,18 @@ trait ModelSave
                 $this->$method();
             }
         }
-        try {
-            DB::update($this::TABLE, $this->getQueryData(), ['%n = %i', $this::getPrimaryKey(), $this->id]);
-        } catch (Exception $e) {
-            $this->getLogger()->error('Error running update query: '.$e->getMessage());
-            $this->getLogger()->debug('Query: '.$e->getSql());
-            $this->getLogger()->exception($e);
-            return false;
+        $queryData = $this->getQueryData();
+
+        if (!empty($queryData)) {
+            // Update only if there are any changes
+            try {
+                DB::update($this::TABLE, $queryData, ['%n = %i', $this::getPrimaryKey(), $this->id]);
+            } catch (Exception $e) {
+                $this->getLogger()->error('Error running update query: '.$e->getMessage());
+                $this->getLogger()->debug('Query: '.$e->getSql());
+                $this->getLogger()->exception($e);
+                return false;
+            }
         }
 
         if (!$this->updateOneToManyRelations()) {
