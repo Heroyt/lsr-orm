@@ -30,8 +30,6 @@ use Symfony\Component\Serializer\Serializer;
 
 /**
  * Extended test suite for models covering additional features
- *
- * @author Github Copilot
  */
 class ModelExtendedTest extends TestCase
 {
