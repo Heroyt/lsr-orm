@@ -14,6 +14,7 @@ use Lsr\Caching\Cache;
 use Lsr\Db\Connection;
 use Lsr\Db\DB;
 use Lsr\Orm\Exceptions\ModelNotFoundException;
+use Lsr\Orm\ModelRepository;
 use Lsr\Serializer\Mapper;
 use Lsr\Serializer\Normalizer\DateTimeNormalizer;
 use Lsr\Serializer\Normalizer\DibiRowNormalizer;
@@ -367,6 +368,7 @@ class ModelTest extends TestCase
                 'name' => 'test timestamp',
             ]
         );
+        ModelRepository::clearInstances();
         $this->cache->clean([Cache::All => true]);
     }
 
