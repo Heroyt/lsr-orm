@@ -423,7 +423,7 @@ trait ModelConfigProvider
             $attributes = $method->getAttributes($hook);
             if (count($attributes) > 0) {
                 $method = $method->getName();
-                $hooks[] = $static ? self::$method(...) : $method;
+                $hooks[] = $static ? [static::class, $method] : $method;
             }
         }
         return $hooks;

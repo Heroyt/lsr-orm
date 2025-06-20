@@ -79,6 +79,15 @@ trait ModelSave
             return false;
         }
 
+        if (!$this->updateManyToManyRelations()) {
+            return false;
+        }
+
+        // Update the model's original values
+        foreach ($queryData as $key => $value) {
+            $this->originalValues[$key] = $value;
+        }
+
         foreach ($this::getAfterUpdate() as $method) {
             if (method_exists($this, $method)) {
                 $this->$method();
@@ -253,47 +262,6 @@ trait ModelSave
     }
 
     /**
-     * Insert a new model into the DB
-     *
-     * @return bool
-     * @throws ValidationException
-     * @throws ReflectionException
-     */
-    public function insert() : bool {
-        $this->getLogger()->info('Inserting new model');
-        foreach ($this::getBeforeInsert() as $method) {
-            if (method_exists($this, $method)) {
-                $this->$method();
-            }
-        }
-        try {
-            DB::insert($this::TABLE, $this->getQueryData(false));
-            $this->id = DB::getInsertId();
-        } catch (Exception $e) {
-            $this->getLogger()->error('Error running insert query: '.$e->getMessage());
-            $this->getLogger()->debug('Query: '.$e->getSql());
-            $this->getLogger()->exception($e);
-            return false;
-        }
-        if (empty($this->id)) {
-            $this->getLogger()->error('Insert query passed, but ID was not returned.');
-            return false;
-        }
-        ModelRepository::setInstance($this);
-
-        if (!$this->updateOneToManyRelations(false)) {
-            return false;
-        }
-
-        foreach ($this::getAfterInsert() as $method) {
-            if (method_exists($this, $method)) {
-                $this->$method();
-            }
-        }
-        return true;
-    }
-
-    /**
      * @throws ReflectionException
      */
     protected function updateManyToManyRelations(bool $filterChanged = true) : bool {
@@ -322,7 +290,7 @@ trait ModelSave
 
             // Find the original models' ids
             $originalIds = $this->originalValues[$propertyName] ?? [];
-            assert($originalIds === null || array_all($originalIds, 'is_int'));
+            assert($originalIds === null || array_all($originalIds, static fn($id) => is_int($id)));
 
             $currentIds = $model->map(fn(Model $m) => $m->id);
 
@@ -357,11 +325,15 @@ trait ModelSave
             if (!empty($modelsToInsert)) {
                 // Set the foreign key in the relation table
                 try {
-                    $insertValues = array_map(
-                        fn(int $id) => [$thisPK => $this->id, $relationPK => $id],
-                        $modelsToInsert
-                    );
-                    DB::insertIgnore($table, $insertValues);
+                    foreach ($modelsToInsert as $id) {
+                        DB::insertIgnore(
+                            $table,
+                            [
+                                $thisPK     => $this->id,
+                                $relationPK => $id,
+                            ]
+                        );
+                    }
                 } catch (Exception $e) {
                     $this->getLogger()->error('Error updating many-to-many relation: '.$e->getMessage());
                     $this->getLogger()->debug('Query: '.$e->getSql());
@@ -415,6 +387,59 @@ trait ModelSave
             }
         }
 
+        return true;
+    }
+
+    /**
+     * Insert a new model into the DB
+     *
+     * @return bool
+     * @throws ValidationException
+     * @throws ReflectionException
+     */
+    public function insert() : bool {
+        $this->getLogger()->info('Inserting new model');
+        foreach ($this::getBeforeInsert() as $method) {
+            if (method_exists($this, $method)) {
+                $this->$method();
+            }
+        }
+
+        $queryData = $this->getQueryData(false);
+
+        try {
+            DB::insert($this::TABLE, $queryData);
+            $this->id = DB::getInsertId();
+        } catch (Exception $e) {
+            $this->getLogger()->error('Error running insert query: '.$e->getMessage());
+            $this->getLogger()->debug('Query: '.$e->getSql());
+            $this->getLogger()->exception($e);
+            return false;
+        }
+        if (empty($this->id)) {
+            $this->getLogger()->error('Insert query passed, but ID was not returned.');
+            return false;
+        }
+        ModelRepository::setInstance($this);
+
+        if (!$this->updateOneToManyRelations(false)) {
+            return false;
+        }
+
+        if (!$this->updateManyToManyRelations(false)) {
+            return false;
+        }
+
+        // Update the model's original values
+        foreach ($queryData as $key => $value) {
+            $this->originalValues[$key] = $value;
+        }
+
+        foreach ($this::getAfterInsert() as $method) {
+            if (method_exists($this, $method)) {
+                $this->$method();
+            }
+        }
         return true;
     }
 

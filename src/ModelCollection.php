@@ -218,4 +218,8 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
         unset($this->models[$model->{$this->keyProperty}]);
         return $this;
     }
+
+    public function contains(Model $model) : bool {
+        return isset($this->models[$model->id]);
+    }
 }

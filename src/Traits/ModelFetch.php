@@ -487,7 +487,7 @@ trait ModelFetch
      * @param  non-empty-string  $property
      * @throws ReflectionException
      */
-    protected function hasChanged(string $property) : bool {
+    public function hasChanged(string $property) : bool {
         $reflection = new ReflectionClass($this);
         $propertyReflection = $reflection->getProperty($property);
         if (!$propertyReflection->isInitialized($this)) {
