@@ -62,6 +62,13 @@ class ManyToMany extends ModelRelation
             $table = $class::TABLE;
             /** @var non-empty-string $targetTable */
             $targetTable = $targetClass::TABLE;
+
+            // Alphabetically sort the table names to ensure consistent naming
+            if (strcmp($table, $targetTable) > 0) {
+                // Swap values
+                [$table, $targetTable] = [$targetTable, $table];
+            }
+
             $this->through = '::'.$table.'_'.$targetTable;
         }
         return $this->through;

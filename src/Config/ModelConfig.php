@@ -66,11 +66,14 @@ abstract class ModelConfig
     /** @var non-empty-string[] */
     public array $afterDelete = [];
 
+    /** @var list<callable(int $id):void> */
+    public array $afterExternalUpdate = [];
+
     public ?Factory $factory {
         get {
-    if (!isset($this->factoryConfig)) {
-        return null;
-    }
+            if (!isset($this->factoryConfig)) {
+                return null;
+            }
 
             $this->factory ??= new Factory(
                 $this->factoryConfig['factoryClass'],

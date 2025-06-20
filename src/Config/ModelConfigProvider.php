@@ -8,6 +8,7 @@ use Lsr\Helpers\Tools\Strings;
 use Lsr\Logging\FsHelper;
 use Lsr\Orm\Attributes\Factory;
 use Lsr\Orm\Attributes\Hooks\AfterDelete;
+use Lsr\Orm\Attributes\Hooks\AfterExternalUpdate;
 use Lsr\Orm\Attributes\Hooks\AfterInsert;
 use Lsr\Orm\Attributes\Hooks\AfterUpdate;
 use Lsr\Orm\Attributes\Hooks\BeforeDelete;
@@ -29,6 +30,7 @@ use Nette\PhpGenerator\PhpFile;
 use Nette\PhpGenerator\PsrPrinter;
 use ReflectionAttribute;
 use ReflectionClass;
+use ReflectionMethod;
 use ReflectionNamedType;
 use ReflectionProperty;
 use RuntimeException;
@@ -187,6 +189,7 @@ trait ModelConfigProvider
         $class->addProperty('afterInsert', static::findAfterInsert())->setType('array');
         $class->addProperty('beforeDelete', static::findBeforeDelete())->setType('array');
         $class->addProperty('afterDelete', static::findAfterDelete())->setType('array');
+        $class->addProperty('afterExternalUpdate', static::findAfterExternalUpdate())->setType('array');
 
         // Factory
         $factory = static::findFactory();
@@ -410,15 +413,17 @@ trait ModelConfigProvider
 
     /**
      * @param  class-string  $hook
-     * @return non-empty-string[]
+     * @param  bool  $static
+     * @return ($static is true ? list<callable(int $id):void> : non-empty-string[])
      */
-    protected static function findHooks(string $hook) : array {
+    protected static function findHooks(string $hook, bool $static = false) : array {
         $hooks = [];
-        $methods = static::getReflection()->getMethods();
+        $methods = static::getReflection()->getMethods($static ? ReflectionMethod::IS_STATIC : null);
         foreach ($methods as $method) {
             $attributes = $method->getAttributes($hook);
             if (count($attributes) > 0) {
-                $hooks[] = $method->getName();
+                $method = $method->getName();
+                $hooks[] = $static ? self::$method(...) : $method;
             }
         }
         return $hooks;
@@ -457,6 +462,13 @@ trait ModelConfigProvider
      */
     public static function findAfterDelete() : array {
         return static::findHooks(AfterDelete::class);
+    }
+
+    /**
+     * @return non-empty-string[]
+     */
+    public static function findAfterExternalUpdate() : array {
+        return static::findHooks(AfterExternalUpdate::class, true);
     }
 
     /**
@@ -534,5 +546,16 @@ trait ModelConfigProvider
             return static::findAfterDelete();
         }
         return static::getModelConfig()->afterDelete;
+    }
+
+    /**
+     * @return list<callable(int $id):void>
+     */
+    public static function getAfterExternalUpdate() : array {
+        // Prevent infinite loop due to cyclic relations
+        if (!static::canUseConfig()) {
+            return static::findAfterExternalUpdate();
+        }
+        return static::getModelConfig()->afterExternalUpdate;
     }
 }
