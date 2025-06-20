@@ -67,7 +67,10 @@ trait WithSerialization
                     )
                 );
             }
-            if ($method->getReturnType() === null || $method->getReturnType()->getName() !== 'array') {
+            $returnType = $method->getReturnType();
+            if ($returnType === null 
+                || !($returnType instanceof \ReflectionNamedType) 
+                || $returnType->getName() !== 'array') {
                 throw new \RuntimeException(
                     sprintf(
                         'Method %s::%s must return an array.',
