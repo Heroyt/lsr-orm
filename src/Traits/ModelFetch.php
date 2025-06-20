@@ -548,7 +548,7 @@ trait ModelFetch
             else {
                 $originalValue->addQueryData($originalData);
             }
-            return count(array_intersect($originalData, $currentData)) !== count($currentData); // Compare query data
+            return $originalData !== $currentData; // Compare query data
         }
 
         // Check other values
