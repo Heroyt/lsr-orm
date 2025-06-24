@@ -84,7 +84,18 @@ trait ModelSave
         }
 
         // Update the model's original values
-        foreach ($queryData as $key => $value) {
+        foreach ($this->getChangedProperties() as $key => $value) {
+            if ($value instanceof Model) {
+                $value = $value->id;
+            }
+            else if ($value instanceof ModelCollection) {
+                $value = $value->map(fn(Model $m) => $m->id);
+            }
+            else if ($value instanceof InsertExtendInterface) {
+                $data = [];
+                $value->addQueryData($data);
+                $value = $data;
+            }
             $this->originalValues[$key] = $value;
         }
 
@@ -94,6 +105,22 @@ trait ModelSave
             }
         }
         return true;
+    }
+
+    public function getChangedProperties() : array {
+        $changed = [];
+        foreach ($this::getProperties() as $propertyName => $property) {
+            if (
+                $property['noDb']
+                || ($property['isVirtual'] ?? false)
+                || (!isset($this->$propertyName) && $property['isPrimaryKey'])
+                || !$this->hasChanged($propertyName)
+            ) {
+                continue;
+            }
+            $changed[$propertyName] = $this->$propertyName;
+        }
+        return $changed;
     }
 
     /**
@@ -196,7 +223,7 @@ trait ModelSave
 
             // Find the original models' ids
             $originalIds = $this->originalValues[$propertyName] ?? [];
-            assert($originalIds === null || array_all($originalIds, 'is_int'));
+            assert($originalIds === null || array_all($originalIds, static fn($id) => is_int($id)));
 
             $currentIds = $model->map(fn(Model $m) => $m->id);
 
@@ -210,7 +237,7 @@ trait ModelSave
                     DB::update(
                         $relationClass::TABLE,
                         [
-                            $property['foreignKey'] => null,
+                            $property['relation']['foreignKey'] => null,
                         ],
                         [
                             '%n IN %in',
@@ -232,7 +259,7 @@ trait ModelSave
                     DB::update(
                         $relationClass::TABLE,
                         [
-                            $property['foreignKey'] => $this->id,
+                            $property['relation']['foreignKey'] => $this->id,
                         ],
                         [
                             '%n IN %in',
@@ -247,6 +274,9 @@ trait ModelSave
                     return false;
                 }
             }
+
+            // Update original Ids
+            $this->originalValues[$propertyName] = $currentIds;
 
             // Call external hooks on updated models
             foreach ($relationClass::getAfterExternalUpdate() as $function) {
@@ -341,6 +371,9 @@ trait ModelSave
                     return false;
                 }
             }
+
+            // Update original Ids
+            $this->originalValues[$propertyName] = $currentIds;
 
             // Call external hooks on updated models
             foreach ($relationClass::getAfterExternalUpdate() as $function) {
