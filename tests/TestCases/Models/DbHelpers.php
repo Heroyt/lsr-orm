@@ -433,7 +433,11 @@ trait DbHelpers
         foreach (self::TABLES as $sql) {
             try {
                 DB::getConnection()->query($sql);
-            } catch (Exception) {
+            } catch (Exception $e) {
+                // Only ignore "table already exists" errors
+                if (!str_contains($e->getMessage(), 'already exists')) {
+                    throw $e;
+                }
             }
         }
 
