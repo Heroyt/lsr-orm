@@ -33,20 +33,14 @@ if (
     throw new RuntimeException('Cannot create log folder');
 }
 
-if (file_exists(TMP_DIR . "dbModels.db")) {
-    unlink(TMP_DIR . "dbModels.db");
-}
-touch(TMP_DIR . "dbModels.db");
-if (file_exists(TMP_DIR . "dbModelsComplex.db")) {
-    unlink(TMP_DIR . "dbModelsComplex.db");
-}
-touch(TMP_DIR . "dbModelsComplex.db");
-if (file_exists(TMP_DIR . "dbQuery.db")) {
-    unlink(TMP_DIR . "dbQuery.db");
-}
-touch(TMP_DIR . "dbQuery.db");
-if (!file_exists(ROOT . "tests/tmp/dbc.db")) {
-    touch(ROOT . "tests/tmp/dbc.db");
+// Remove all DB files from the temporary directory
+$dbFiles = glob(TMP_DIR.'*.db');
+if ($dbFiles !== false) {
+    foreach ($dbFiles as $file) {
+        if (is_file($file)) {
+            unlink($file);
+        }
+    }
 }
 
 // Clear model cache

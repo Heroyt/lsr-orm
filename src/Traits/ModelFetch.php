@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Lsr\Orm;
+namespace Lsr\Orm\Traits;
 
 use DateInterval;
 use DateTimeImmutable;
@@ -11,6 +11,8 @@ use Dibi\Row;
 use Lsr\Db\DB;
 use Lsr\Helpers\Tools\Strings;
 use Lsr\Logging\Exceptions\DirectoryCreationException;
+use Lsr\Orm\Attributes\JsonExclude;
+use Lsr\Orm\Attributes\NoDB;
 use Lsr\Orm\Attributes\Relations\ManyToMany;
 use Lsr\Orm\Attributes\Relations\ManyToOne;
 use Lsr\Orm\Attributes\Relations\OneToMany;
@@ -20,7 +22,11 @@ use Lsr\Orm\Exceptions\ModelNotFoundException;
 use Lsr\Orm\Exceptions\UndefinedPropertyException;
 use Lsr\Orm\Exceptions\ValidationException;
 use Lsr\Orm\Interfaces\InsertExtendInterface;
+use Lsr\Orm\LoadingType;
+use Lsr\Orm\Model;
+use Lsr\Orm\ModelCollection;
 use ReflectionClass;
+use ReflectionException;
 use RuntimeException;
 
 /**
@@ -29,6 +35,11 @@ use RuntimeException;
  */
 trait ModelFetch
 {
+
+    /** @var array<string, mixed> */
+    #[NoDB, JsonExclude]
+    protected(set) array $originalValues = [];
+
     /**
      * Fetch model's data from DB
      *
@@ -74,9 +85,16 @@ trait ModelFetch
                 $reflection = new ReflectionClass($class);
 
                 $this->$name = $reflection->newLazyProxy(
-                    fn(InsertExtendInterface $proxy) => $this->row !== null ?
-                        ($class::parseRow($this->row) ?? $proxy)
-                        : $proxy
+                    function (InsertExtendInterface $proxy) use ($class, $name) {
+                        $data = $this->row !== null ?
+                            ($class::parseRow($this->row) ?? $proxy)
+                            : $proxy;
+
+                        $this->originalValues[$name] = [];
+                        $data->addQueryData($this->originalValues[$name]);
+
+                        return $data;
+                    }
                 );
                 continue;
             }
@@ -137,6 +155,9 @@ trait ModelFetch
             case OneToOne::class:
             /** @var int|null $id */
             $id = $this->row?->$localKey;
+
+            $this->originalValues[$propertyName] = $id;
+
             if ($id !== null) {
                     $this->relationIds[$propertyName] = $id;
                 }
@@ -196,6 +217,7 @@ trait ModelFetch
                 // Get the relation
                 $this->$propertyName = $factoryClosure();
                 break;
+
             case OneToMany::class:
                 $id = $this->id;
                 /** @var class-string<ModelCollection<Model>> $collectionClass */ // @phpstan-ignore varTag.nativeType
@@ -221,25 +243,37 @@ trait ModelFetch
 
                 if ($id === null) {
                     $this->$propertyName = new $collectionClass();
+                    $this->originalValues[$propertyName] = [];
                     break;
                 }
+
                 if ($relation['factoryMethod'] !== null) {
                     $method = $relation['factoryMethod'];
                     /**
                      * @return ModelCollection<Model>
                      */
-                    $factoryClosure = fn() => $this->$method();
+                    $factoryClosure = function () use ($method, $propertyName) {
+                        /** @var ModelCollection<Model> $entities */
+                        $entities = $this->$method();
+                        $this->originalValues[$propertyName] = $entities->map(fn(Model $m) => $m->id);
+                        return $entities;
+                    };
                 }
                 else {
                     /**
                      * @return ModelCollection<Model>
                      */
-                    $factoryClosure = fn() => new $collectionClass(
-                        $className::query()
-                                  ->where('%n = %i', $foreignKey, $id)
-                                  ->cacheTags($this::TABLE.'/'.$this->id.'/relations')
-                                  ->get()
-                    );
+                    $factoryClosure = function () use ($className, $id, $collectionClass, $foreignKey, $propertyName) {
+                        /** @var ModelCollection<Model> $entities */
+                        $entities = new $collectionClass(
+                            $className::query()
+                                      ->where('%n = %i', $foreignKey, $id)
+                                      ->cacheTags($this::TABLE.'/'.$this->id.'/relations')
+                                      ->get()
+                        );
+                        $this->originalValues[$propertyName] = $entities->map(fn(Model $m) => $m->id);
+                        return $entities;
+                    };
                 }
 
                 if ($relation['loadingType'] === LoadingType::LAZY) {
@@ -274,28 +308,41 @@ trait ModelFetch
                 }
                 if ($id === null) {
                     $this->$propertyName = new $collectionClass();
+                    $this->originalValues[$propertyName] = [];
                     break;
                 }
+
                 if ($relation['factoryMethod'] !== null) {
                     $method = $relation['factoryMethod'];
                     /**
                      * @return ModelCollection<Model>
                      */
-                    $factoryClosure = fn() => $this->$method();
+                    $factoryClosure = function () use ($method, $propertyName) {
+                        /** @var ModelCollection<Model> $entities */
+                        $entities = $this->$method();
+                        $this->originalValues[$propertyName] = $entities->map(fn(Model $m) => $m->id);
+                        return $entities;
+                    };
                 }
                 else {
                     /** @var ManyToMany $attributeClass */
                     $attributeClass = unserialize($relation['instance'], ['allowedClasses' => [ManyToMany::class]]);
                     $connectionQuery = $attributeClass->getConnectionQuery($id, $className, $this);
+
                     /**
                      * @return ModelCollection<Model>
                      */
-                    $factoryClosure = fn() => new $collectionClass(
-                        $className::query()
-                                  ->where('%n IN %sql', $className::getPrimaryKey(), $connectionQuery)
-                                  ->cacheTags($this::TABLE.'/'.$this->id.'/relations')
-                                  ->get()
-                    );
+                    $factoryClosure = function () use ($className, $collectionClass, $propertyName, $connectionQuery) {
+                        /** @var ModelCollection<Model> $entities */
+                        $entities = new $collectionClass(
+                            $className::query()
+                                      ->where('%n IN %sql', $className::getPrimaryKey(), $connectionQuery)
+                                      ->cacheTags($this::TABLE.'/'.$this->id.'/relations')
+                                      ->get()
+                        );
+                        $this->originalValues[$propertyName] = $entities->map(fn(Model $m) => $m->id);
+                        return $entities;
+                    };
                 }
 
                 if ($relation['loadingType'] === LoadingType::LAZY) {
@@ -402,6 +449,86 @@ trait ModelFetch
         }
 
         $this->$name = $value;
+        $this->originalValues[$name] = $value;
+    }
+
+    /**
+     * @param  non-empty-string  $property
+     * @throws ReflectionException
+     */
+    public function hasChanged(string $property) : bool {
+        $reflection = new ReflectionClass($this);
+        $propertyReflection = $reflection->getProperty($property);
+        if (!$propertyReflection->isInitialized($this)) {
+            return false;
+        }
+
+        $currentValue = $propertyReflection->getValue($this);
+        if (
+            is_object($currentValue)
+            && new ReflectionClass(get_class($currentValue))->isUninitializedLazyObject($currentValue)
+        ) {
+            return false; // Lazy properties are not considered changed
+        }
+        if (!array_key_exists($property, $this->originalValues)) {
+            return true; // Property was never set, so it is considered changed
+        }
+
+        return $this->checkChange($this->originalValues[$property], $currentValue);
+    }
+
+    protected function checkChange(mixed $originalValue, mixed $currentValue) : bool {
+        // Check for models
+        if ($currentValue instanceof Model) {
+            if ($originalValue instanceof Model) {
+                return $originalValue->id !== $currentValue->id; // Compare IDs for models
+            }
+            if (is_int($originalValue)) {
+                return $originalValue !== $currentValue->id; // Compare ID with integer
+            }
+            return true; // Original value is not a model, so they are different
+        }
+
+        // Check collections
+        if ($currentValue instanceof ModelCollection) {
+            if (!is_array($originalValue) && !$originalValue instanceof ModelCollection) {
+                return true; // Original value is not a collection, so they are different
+            }
+
+            if (count($originalValue) !== count($currentValue)) {
+                return true; // Collection size has changed
+            }
+
+            // Compare IDs of models in the collection
+            $originalIds = array_map(static fn($m) => $m instanceof Model ? $m->id : (int) $m, $originalValue);
+            $currentIds = $currentValue->map(fn(Model $m) => $m->id);
+
+            sort($originalIds);
+            sort($currentIds);
+
+
+            return $originalIds !== $currentIds;
+        }
+
+        // Check insert extend interfaces
+        if ($currentValue instanceof InsertExtendInterface) {
+            if (!is_array($originalValue) && !$originalValue instanceof InsertExtendInterface) {
+                return true; // Original value is not an extend interface, so they are different
+            }
+            $currentData = [];
+            $currentValue->addQueryData($currentData);
+            $originalData = [];
+            if (is_array($originalValue)) {
+                $originalData = $originalValue;
+            }
+            else {
+                $originalValue->addQueryData($originalData);
+            }
+            return $originalData !== $currentData; // Compare query data
+        }
+
+        // Check other values
+        return $originalValue !== $currentValue;
     }
 
     /**

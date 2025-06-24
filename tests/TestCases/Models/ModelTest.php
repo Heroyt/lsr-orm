@@ -8,15 +8,9 @@
 
 namespace TestCases\Models;
 
-use Dibi\Exception;
 use Dibi\Row;
-use Lsr\Caching\Cache;
-use Lsr\Db\Connection;
 use Lsr\Db\DB;
 use Lsr\Orm\Exceptions\ModelNotFoundException;
-use Lsr\Serializer\Mapper;
-use Lsr\Serializer\Normalizer\DateTimeNormalizer;
-use Lsr\Serializer\Normalizer\DibiRowNormalizer;
 use Mocks\Models\ModelA;
 use Mocks\Models\ModelB;
 use Mocks\Models\ModelBLazy;
@@ -31,16 +25,9 @@ use Mocks\Models\ModelPk2;
 use Mocks\Models\ModelWithTimestamps;
 use Mocks\Models\SimpleData;
 use Mocks\Models\TestEnum;
-use Nette\Caching\Storages\DevNullStorage;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
-use Symfony\Component\Serializer\Normalizer\ArrayDenormalizer;
-use Symfony\Component\Serializer\Normalizer\BackedEnumNormalizer;
-use Symfony\Component\Serializer\Normalizer\JsonSerializableNormalizer;
-use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
-use Symfony\Component\Serializer\Serializer;
 use function json_encode;
 
 
@@ -51,327 +38,16 @@ use function json_encode;
  */
 class ModelTest extends TestCase
 {
-    private Cache $cache {
-        get => new Cache(new DevNullStorage());
-    }
-
-    private Mapper $mapper {
-        get => new Mapper(
-            new Serializer(
-                [
-                    new ArrayDenormalizer(),
-                    new DateTimeNormalizer(),
-                    new DibiRowNormalizer(),
-                    new BackedEnumNormalizer(),
-                    new JsonSerializableNormalizer(),
-                    new ObjectNormalizer(propertyTypeExtractor: new ReflectionExtractor(),),
-                ]
-            )
-        );
-    }
+    use DbHelpers;
 
     public function setUp(): void {
-        DB::init(
-            new Connection(
-                $this->cache,
-                $this->mapper,
-                [
-                    'driver'   => "sqlite",
-                    'database' => ROOT . "tests/tmp/dbModels.db",
-                    'prefix'   => "",
-                ]
-            )
-        );
-        try {
-            DB::getConnection()->query(
-                "
-			CREATE TABLE modelsA ( 
-			    model_a_id INTEGER PRIMARY KEY autoincrement NOT NULL , 
-			    name CHAR(60) NOT NULL, 
-			    age INT,
-			    verified INT DEFAULT 0 
-			);
-		"
-            );
-        } catch (Exception) {
-        }
-        try {
-            DB::getConnection()->query(
-                "
-			CREATE TABLE modelsB ( 
-			    model_b_id INTEGER PRIMARY KEY autoincrement NOT NULL, 
-			    description CHAR(200) NOT NULL, 
-			    model_type CHAR(1) NOT NULL, 
-			    model_a_id INT 
-			);
-		"
-            );
-        } catch (Exception) {
-        }
-        try {
-            DB::getConnection()->query(
-                "
-			CREATE TABLE modelsC ( 
-			    model_c_id INTEGER PRIMARY KEY autoincrement NOT NULL,
-			    value0 CHAR(50) NOT NULL, 
-			    value1 CHAR(50) NOT NULL, 
-			    value2 CHAR(50) NOT NULL
-			);
-		"
-            );
-        } catch (Exception) {
-        }
-        try {
-            DB::getConnection()->query(
-                "
-			CREATE TABLE modelsD ( 
-			    model_d_id INTEGER PRIMARY KEY autoincrement NOT NULL,
-			    name CHAR(50) NOT NULL
-			);
-		"
-            );
-        } catch (Exception) {
-        }
-        try {
-            DB::getConnection()->query(
-                "
-			CREATE TABLE modelsE ( 
-			    model_e_id INTEGER PRIMARY KEY autoincrement NOT NULL,
-			    name CHAR(50) NOT NULL
-			);
-		"
-            );
-        } catch (Exception) {
-        }
-        try {
-            DB::getConnection()->query(
-                "
-			CREATE TABLE modelsD_modelsE ( 
-			    model_d_id INTEGER NOT NULL,
-			    model_e_id INTEGER NOT NULL,
-			  	PRIMARY KEY(model_d_id, model_e_id)
-			);
-		"
-            );
-        } catch (Exception) {
-        }
-        try {
-            DB::getConnection()->query(
-                "
-			CREATE TABLE model_invalid_instantiate ( 
-			    id_model INTEGER PRIMARY KEY autoincrement NOT NULL
-			);
-		"
-            );
-        } catch (Exception) {
-        }
-        try {
-            DB::getConnection()->query(
-                "
-			CREATE TABLE with_timestamps ( 
-			    id_with_timestamps INTEGER PRIMARY KEY autoincrement NOT NULL,
-			    name CHAR(50) NOT NULL,
-			    updated_at TIMESTAMP DEFAULT NULL,
-			    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-			);
-		"
-            );
-        } catch (Exception) {
-        }
-        $this->refreshData();
+        $this->initDb();
 
         parent::setUp();
     }
 
-    public function refreshData(): void {
-        DB::delete(ModelA::TABLE, ['1 = 1']);
-        DB::delete(ModelB::TABLE, ['1 = 1']);
-        DB::delete(ModelC::TABLE, ['1 = 1']);
-        DB::delete(ModelD::TABLE, ['1 = 1']);
-        DB::delete(ModelE::TABLE, ['1 = 1']);
-        DB::delete(ModelWithTimestamps::TABLE, ['1 = 1']);
-        DB::delete(ModelInvalidInstantiate::TABLE, ['1 = 1']);
-        DB::delete('modelsD_modelsE', ['1 = 1']);
-
-        DB::insert(
-            ModelA::TABLE,
-            [
-                'model_a_id' => 1,
-                'name'       => 'model1',
-                'age'        => 20,
-                'verified' => false,
-            ]
-        );
-
-        DB::insert(
-            ModelA::TABLE,
-            [
-                'model_a_id' => 2,
-                'name'       => 'model2',
-                'age'        => null,
-                'verified' => true,
-            ]
-        );
-
-        DB::insert(
-            ModelB::TABLE,
-            [
-                'model_b_id'  => 1,
-                'description' => 'Lorem ipsum',
-                'model_type'  => 'A',
-                'model_a_id'  => 1,
-            ]
-        );
-        DB::insert(
-            ModelB::TABLE,
-            [
-                'model_b_id'  => 2,
-                'description' => 'Lorem ipsumaaaaa',
-                'model_type'  => 'A',
-                'model_a_id'  => 1,
-            ]
-        );
-        DB::insert(
-            ModelB::TABLE,
-            [
-                'model_b_id'  => 3,
-                'description' => 'Lorem ipsumbbbbbb',
-                'model_type'  => 'C',
-                'model_a_id'  => 2,
-            ]
-        );
-        DB::insert(
-            ModelB::TABLE,
-            [
-                'model_b_id'  => 4,
-                'description' => 'Lorem dasmdlsakdnad',
-                'model_type'  => 'D',
-                'model_a_id'  => null,
-            ]
-        );
-        DB::insert(
-            ModelC::TABLE,
-            [
-                'model_c_id' => 1,
-                'value0'     => 'value0',
-                'value1'     => 'value1',
-                'value2'     => 'value2',
-            ]
-        );
-        DB::insert(
-            ModelC::TABLE,
-            [
-                'model_c_id' => 2,
-                'value0'     => 'a',
-                'value1'     => 'b',
-                'value2'     => 'c',
-            ]
-        );
-
-        DB::insert(
-            ModelE::TABLE,
-            [
-                'model_e_id' => 1,
-                'name'       => 'a',
-            ]
-        );
-        DB::insert(
-            ModelE::TABLE,
-            [
-                'model_e_id' => 2,
-                'name'       => 'b',
-            ]
-        );
-        DB::insert(
-            ModelE::TABLE,
-            [
-                'model_e_id' => 3,
-                'name'       => 'c',
-            ]
-        );
-
-        DB::insert(
-            ModelD::TABLE,
-            [
-                'model_d_id' => 1,
-                'name'       => 'a',
-            ]
-        );
-        DB::insert(
-            ModelD::TABLE,
-            [
-                'model_d_id' => 2,
-                'name'       => 'b',
-            ]
-        );
-        DB::insert(
-            ModelD::TABLE,
-            [
-                'model_d_id' => 3,
-                'name'       => 'c',
-            ]
-        );
-        DB::insert(
-            ModelInvalidInstantiate::TABLE,
-            [
-                'id_model' => 1,
-            ]
-        );
-
-        DB::insert(
-            'modelsD_modelsE',
-            [
-                'model_d_id' => 1,
-                'model_e_id' => 1,
-            ]
-        );
-        DB::insert(
-            'modelsD_modelsE',
-            [
-                'model_d_id' => 1,
-                'model_e_id' => 2,
-            ]
-        );
-        DB::insert(
-            'modelsD_modelsE',
-            [
-                'model_d_id' => 1,
-                'model_e_id' => 3,
-            ]
-        );
-        DB::insert(
-            'modelsD_modelsE',
-            [
-                'model_d_id' => 2,
-                'model_e_id' => 1,
-            ]
-        );
-        DB::insert(
-            'modelsD_modelsE',
-            [
-                'model_d_id' => 2,
-                'model_e_id' => 3,
-            ]
-        );
-        DB::insert(
-            'modelsD_modelsE',
-            [
-                'model_d_id' => 3,
-                'model_e_id' => 1,
-            ]
-        );
-        DB::insert(
-            ModelWithTimestamps::TABLE,
-            [
-                'id_with_timestamps' => 1,
-                'name' => 'test timestamp',
-            ]
-        );
-        $this->cache->clean([Cache::All => true]);
-    }
-
     public function tearDown(): void {
-        DB::close();
+        $this->cleanupDb();
         parent::tearDown();
     }
 
@@ -467,7 +143,7 @@ class ModelTest extends TestCase
 
         // Eager model should update its relation normally
         $modelEager->parent = $parent2;
-        $data = $modelEager->getQueryData();
+        $data = $modelEager->getQueryData(false);
         self::assertEquals(2, $data['model_a_id']);
         self::assertArrayHasKey('model_a_id', $data);
         self::assertTrue($modelEager->save());
@@ -475,7 +151,7 @@ class ModelTest extends TestCase
         self::assertEquals(2, $testId);
 
         // Save without setting any parent (parent parameter is not set) should not change its value
-        $data = $modelLazy->getQueryData();
+        $data = $modelLazy->getQueryData(false);
         // @phpstan-ignore argument.type
         self::assertArrayHasKey('model_a_id', $data, json_encode($data));
         self::assertTrue($modelLazy->save());
@@ -484,7 +160,7 @@ class ModelTest extends TestCase
 
         // After setting the value, it should behave as expected
         $modelLazy->parent = $parent2;
-        $data = $modelLazy->getQueryData();
+        $data = $modelLazy->getQueryData(false);
         self::assertArrayHasKey('model_a_id', $data);
         self::assertEquals(2, $data['model_a_id']);
         self::assertTrue($modelLazy->save());
