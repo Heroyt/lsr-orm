@@ -3,102 +3,22 @@ declare(strict_types=1);
 
 namespace TestCases\Models;
 
-use Dibi\Exception;
-use Lsr\Caching\Cache;
-use Lsr\Db\Connection;
-use Lsr\Db\DB;
 use Lsr\Orm\ModelCollection;
-use Lsr\Serializer\Mapper;
-use Lsr\Serializer\Normalizer\DateTimeNormalizer;
-use Lsr\Serializer\Normalizer\DibiRowNormalizer;
 use Mocks\Models\ModelWithRelationFactories;
-use Nette\Caching\Storages\DevNullStorage;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
-use Symfony\Component\Serializer\Normalizer\ArrayDenormalizer;
-use Symfony\Component\Serializer\Normalizer\BackedEnumNormalizer;
-use Symfony\Component\Serializer\Normalizer\JsonSerializableNormalizer;
-use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
-use Symfony\Component\Serializer\Serializer;
 
 class ModelWithRelationFactoriesTest extends TestCase
 {
-
-    private Cache $cache {
-        get => new Cache(new DevNullStorage());
-    }
-
-    private Mapper $mapper {
-        get => new Mapper(
-            new Serializer(
-                [
-                    new ArrayDenormalizer(),
-                    new DateTimeNormalizer(),
-                    new DibiRowNormalizer(),
-                    new BackedEnumNormalizer(),
-                    new JsonSerializableNormalizer(),
-                    new ObjectNormalizer(propertyTypeExtractor: new ReflectionExtractor(),),
-                ]
-            )
-        );
-    }
+    use DbHelpers;
 
     public function setUp() : void {
-        DB::init(
-            new Connection(
-                $this->cache,
-                $this->mapper,
-                [
-                    'driver'   => "sqlite",
-                    'database' => ROOT."tests/tmp/dbModels.db",
-                    'prefix'   => "",
-                ]
-            )
-        );
-        try {
-            DB::getConnection()->query(
-                "
-			CREATE TABLE modelsWithRelationFactories ( 
-			    id INTEGER PRIMARY KEY autoincrement NOT NULL , 
-			    name CHAR(60) NOT NULL
-			);
-		"
-            );
-        } catch (Exception) {
-        }
-        $this->refreshData();
-
-        $files = glob(TMP_DIR.'models/*');
-        assert($files !== false);
-        foreach ($files as $file) {
-            unlink($file);
-        }
+        $this->initDb('dbRelationWithFactories');
 
         parent::setUp();
     }
 
-    public function refreshData() : void {
-        DB::delete(ModelWithRelationFactories::TABLE, ['1 = 1']);
-        DB::insert(
-            ModelWithRelationFactories::TABLE,
-            [
-                'id'   => 1,
-                'name' => 'model1',
-            ]
-        );
-        DB::insert(
-            ModelWithRelationFactories::TABLE,
-            [
-                'id'   => 2,
-                'name' => 'model2',
-            ]
-        );
-
-        $this->cache->clean([Cache::All => true]);
-    }
-
     public function tearDown() : void {
-        DB::close();
+        $this->cleanupDb();
         parent::tearDown();
     }
 
