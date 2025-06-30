@@ -19,6 +19,7 @@ use RuntimeException;
 class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializable
 {
     public const string UNKNOWN_MODEL = 'unknown';
+    private int $position = 0;
     /** @var array<int,T> $models */
     public array $models = [];
     /**
@@ -57,23 +58,28 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @return T|false
      */
     public function current() : mixed {
-        return current($this->models);
+        $key = array_keys($this->models)[$this->position] ?? null;
+        if ($key === null || !isset($this->models[$key])) {
+            return false;
+        }
+        return $this->models[$key];
     }
 
     public function next() : void {
-        next($this->models);
+        $this->position++;
     }
 
     public function key() : ?int {
-        return key($this->models);
+        return $this->position;
     }
 
     public function valid() : bool {
-        return isset($this->models[key($this->models)]);
+        $key = array_keys($this->models)[$this->position] ?? null;
+        return $key !== null && isset($this->models[$key]);
     }
 
     public function rewind() : void {
-        reset($this->models);
+        $this->position = 0;
     }
 
     /**
@@ -193,6 +199,38 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
             );
         }
         $this->models[$id] = $model;
+        return $this;
+    }
+
+    /**
+     * Add an uninitialized model to the collection
+     *
+     * @param  T  $model
+     * @return $this
+     */
+    public function push(Model $model) : ModelCollection {
+        if (
+            $this->modelClass !== self::UNKNOWN_MODEL
+            && !($model instanceof $this->modelClass)
+        ) {
+            throw new InvalidCollectionModelException(
+                sprintf('Cannot combine models types in a collection (collection class: "%s")', $this->modelClass),
+                InvalidCollectionModelException::INVALID_MODEL_TYPE_CODE
+            );
+        }
+
+        if (!property_exists($model, $this->keyProperty)) {
+            throw new RuntimeException('Property "'.$this->keyProperty.'" does not exist on '.$model::class);
+        }
+
+        /** @var int|null $id */
+        $id = $model->{$this->keyProperty};
+        if ($id === null) {
+            $this->models[] = $model;
+        }
+        else {
+            $this->models[$id] = $model;
+        }
         return $this;
     }
 
