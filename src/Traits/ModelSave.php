@@ -227,8 +227,9 @@ trait ModelSave
 
             $currentIds = $model->map(fn(Model $m) => $m->id);
 
-            $modelsToDelete = array_diff($originalIds, $currentIds);
-            $modelsToInsert = array_diff($currentIds, $originalIds);
+            // TODO: Make sure that the related models are saved
+            $modelsToDelete = array_filter(array_diff($originalIds, $currentIds));
+            $modelsToInsert = array_filter(array_diff($currentIds, $originalIds));
             $relationPK = $relationClass::getPrimaryKey();
 
             if (!empty($modelsToDelete)) {
@@ -324,8 +325,9 @@ trait ModelSave
 
             $currentIds = $model->map(fn(Model $m) => $m->id);
 
-            $modelsToDelete = array_diff($originalIds, $currentIds);
-            $modelsToInsert = array_diff($currentIds, $originalIds);
+            // TODO: Make sure that the related models are saved
+            $modelsToDelete = array_filter(array_diff($originalIds, $currentIds));
+            $modelsToInsert = array_filter(array_diff($currentIds, $originalIds));
 
             $thisPK = $this::getPrimaryKey();
             $relationPK = $relationClass::getPrimaryKey();
