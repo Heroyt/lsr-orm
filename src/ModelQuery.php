@@ -24,7 +24,7 @@ class ModelQuery
     public function __construct(
         protected string $className
     ) {
-        $this->query = DB::select([$this->className::TABLE, 'a'], '*')
+        $this->query = DB::select([$this->className::TABLE, 'a'], 'a.*')
                          ->cacheTags(
                              'models',
                              $this->className::TABLE,
