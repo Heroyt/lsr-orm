@@ -141,9 +141,12 @@ class ModelCollectionTest extends TestCase
     #[DataProvider('getTestCollections')]
     public function testIterator(ModelCollection $collection, int $expectedCount, array $data): void {
         $this->assertCount($expectedCount, $collection);
+        $count = 0;
         foreach ($collection as $id => $model) {
             $this->assertEquals($data[$id], $model);
+            $count++;
         }
+        $this->assertEquals($expectedCount, $count, 'Did not iterate through all models in the collection');
     }
 
     #[DataProvider('getTestCollections')]

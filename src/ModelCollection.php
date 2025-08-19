@@ -70,7 +70,7 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
     }
 
     public function key() : ?int {
-        return $this->position;
+        return array_keys($this->models)[$this->position];
     }
 
     public function valid() : bool {
