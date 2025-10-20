@@ -15,7 +15,6 @@ use Lsr\Orm\Attributes\Relations\OneToOne;
 use Lsr\Orm\Config\ModelConfig;
 use Lsr\Orm\Exceptions\ValidationException;
 use Lsr\Orm\Interfaces\InsertExtendInterface;
-use Lsr\Orm\Interfaces\LoadedModel;
 use Lsr\Orm\Model;
 use Lsr\Orm\ModelCollection;
 use Lsr\Orm\ModelRepository;
@@ -35,7 +34,6 @@ trait ModelSave
      * @return bool
      * @throws ValidationException
      * @phpstan-assert-if-true !null $this->id
-     * @phpstan-assert-if-true LoadedModel $this
      */
     public function save() : bool {
         $this->validate();
@@ -54,7 +52,6 @@ trait ModelSave
      * @return bool If the update was successful
      * @throws ValidationException
      * @phpstan-assert-if-true !null $this->id
-     * @phpstan-assert-if-true LoadedModel $this
      */
     public function update() : bool {
         if (!$this->isLoaded()) {
@@ -447,7 +444,6 @@ trait ModelSave
      * @throws ValidationException
      * @throws ReflectionException
      * @phpstan-assert-if-true !null $this->id
-     * @phpstan-assert-if-true LoadedModel $this
      */
     public function insert() : bool {
         if ($this->isLoaded()) {

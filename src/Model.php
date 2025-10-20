@@ -88,7 +88,6 @@ abstract class Model implements JsonSerializable, ArrayAccess
      *
      * @return bool
      * @phpstan-assert-if-true !null $this->id
-     * @phpstan-assert-if-true LoadedModel $this
      */
     public function isLoaded(): bool
     {
