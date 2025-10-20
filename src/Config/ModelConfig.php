@@ -45,7 +45,7 @@ abstract class ModelConfig
     /** @var FactoryConfig|null */
     public ?array $factoryConfig = null;
 
-    /** @var array<string, PropertyConfig> */
+    /** @var array<non-empty-string, PropertyConfig> */
     public array $properties = [];
 
     /** @var non-empty-string[] */

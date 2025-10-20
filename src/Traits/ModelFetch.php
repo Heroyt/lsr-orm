@@ -499,13 +499,27 @@ trait ModelFetch
                 return true; // Collection size has changed
             }
 
+            // Make sure that original value is an array
+            if ($originalValue instanceof ModelCollection) {
+                $originalValue = $originalValue->toArray();
+            }
+
+            // Make sure the original value contains only models or integers
+            if (!array_all($originalValue, static fn($m) => $m instanceof Model || is_int($m))) {
+                return true; // Original value contains invalid items
+            }
+
+            /** @var array<Model|numeric> $originalValue */
+
             // Compare IDs of models in the collection
-            $originalIds = array_map(static fn($m) => $m instanceof Model ? $m->id : (int) $m, $originalValue);
+            $originalIds = array_map(
+                static fn($m) => $m instanceof Model ? $m->id : (int)$m,
+                $originalValue
+            );
             $currentIds = $currentValue->map(fn(Model $m) => $m->id);
 
             sort($originalIds);
             sort($currentIds);
-
 
             return $originalIds !== $currentIds;
         }

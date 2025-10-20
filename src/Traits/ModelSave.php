@@ -15,6 +15,7 @@ use Lsr\Orm\Attributes\Relations\OneToOne;
 use Lsr\Orm\Config\ModelConfig;
 use Lsr\Orm\Exceptions\ValidationException;
 use Lsr\Orm\Interfaces\InsertExtendInterface;
+use Lsr\Orm\Interfaces\LoadedModel;
 use Lsr\Orm\Model;
 use Lsr\Orm\ModelCollection;
 use Lsr\Orm\ModelRepository;
@@ -33,15 +34,17 @@ trait ModelSave
      *
      * @return bool
      * @throws ValidationException
+     * @phpstan-assert-if-true !null $this->id
+     * @phpstan-assert-if-true LoadedModel $this
      */
     public function save() : bool {
         $this->validate();
         DB::begin();
-        if (isset($this->id) ? $this->update() : $this->insert()) {
+        if ($this->isLoaded() ? $this->update() : $this->insert()) {
             DB::commit();
             return true;
         }
-        DB::rollBack();
+        DB::rollback();
         return false;
     }
 
@@ -50,9 +53,11 @@ trait ModelSave
      *
      * @return bool If the update was successful
      * @throws ValidationException
+     * @phpstan-assert-if-true !null $this->id
+     * @phpstan-assert-if-true LoadedModel $this
      */
     public function update() : bool {
-        if (!isset($this->id)) {
+        if (!$this->isLoaded()) {
             return false;
         }
         $this->getLogger()->info('Updating model - '.$this->id);
@@ -107,6 +112,11 @@ trait ModelSave
         return true;
     }
 
+    /**
+     * Get an array of changed properties
+     * @return array<non-empty-string, mixed> Property name-value pairs of changed properties
+     * @throws ReflectionException
+     */
     public function getChangedProperties() : array {
         $changed = [];
         foreach ($this::getProperties() as $propertyName => $property) {
@@ -222,13 +232,15 @@ trait ModelSave
             assert($model instanceof ModelCollection);
 
             // Find the original models' ids
+            /** @var int[] $originalIds */
             $originalIds = $this->originalValues[$propertyName] ?? [];
-            assert($originalIds === null || array_all($originalIds, static fn($id) => is_int($id)));
-
+            /** @var int[] $currentIds */
             $currentIds = $model->map(fn(Model $m) => $m->id);
 
             // TODO: Make sure that the related models are saved
+            /** @var int[] $modelsToDelete */
             $modelsToDelete = array_filter(array_diff($originalIds, $currentIds));
+            /** @var int[] $modelsToInsert */
             $modelsToInsert = array_filter(array_diff($currentIds, $originalIds));
             $relationPK = $relationClass::getPrimaryKey();
 
@@ -320,13 +332,16 @@ trait ModelSave
             assert($model instanceof ModelCollection);
 
             // Find the original models' ids
+            /** @var int[] $originalIds */
             $originalIds = $this->originalValues[$propertyName] ?? [];
-            assert($originalIds === null || array_all($originalIds, static fn($id) => is_int($id)));
 
+            /** @var int[] $currentIds */
             $currentIds = $model->map(fn(Model $m) => $m->id);
 
             // TODO: Make sure that the related models are saved
+            /** @var int[] $modelsToDelete */
             $modelsToDelete = array_filter(array_diff($originalIds, $currentIds));
+            /** @var int[] $modelsToInsert */
             $modelsToInsert = array_filter(array_diff($currentIds, $originalIds));
 
             $thisPK = $this::getPrimaryKey();
@@ -396,7 +411,7 @@ trait ModelSave
      * @return bool
      */
     public function delete() : bool {
-        if (!isset($this->id)) {
+        if (!$this->isLoaded()) {
             return false;
         }
         $this->getLogger()->info('Delete model: '.$this::TABLE.' of ID: '.$this->id);
@@ -431,8 +446,13 @@ trait ModelSave
      * @return bool
      * @throws ValidationException
      * @throws ReflectionException
+     * @phpstan-assert-if-true !null $this->id
+     * @phpstan-assert-if-true LoadedModel $this
      */
     public function insert() : bool {
+        if ($this->isLoaded()) {
+            return false;
+        }
         $this->getLogger()->info('Inserting new model');
         foreach ($this::getBeforeInsert() as $method) {
             if (method_exists($this, $method)) {

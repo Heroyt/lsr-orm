@@ -7,12 +7,13 @@ namespace Lsr\Orm;
 use Lsr\Logging\Logger;
 use Lsr\Orm\Attributes\Factory;
 use Lsr\Orm\Config\ModelConfig;
+use Lsr\Orm\Interfaces\LoadedModel;
 use ReflectionClass;
 
 final class ModelRepository
 {
     /**
-     * @var array<class-string<Model>, array<int, Model>>
+     * @var array<class-string<Model>, array<int, Model&LoadedModel>>
      */
     private static array $instances = [];
 
@@ -41,17 +42,21 @@ final class ModelRepository
      * @template T of Model
      * @param  class-string<T>  $class
      * @param  int  $id
-     * @return T|null
+     * @return (T&LoadedModel)|null
      */
     public static function getInstance(string $class, int $id): ?Model {
         self::$instances[$class] ??= [];
-        /** @var array<int,T> $instances */
+        /** @var array<int,T&LoadedModel> $instances */
         $instances = self::$instances[$class];
         return $instances[$id] ?? null;
     }
 
+    /**
+     * @param Model $model
+     * @return void
+     */
     public static function setInstance(Model $model): void {
-        if (!isset($model->id)) {
+        if (!$model->isLoaded()) {
             return;
         }
         self::$instances[$model::class] ??= [];
@@ -59,7 +64,7 @@ final class ModelRepository
     }
 
     public static function removeInstance(Model $model): void {
-        if (!isset($model->id)) {
+        if (!$model->isLoaded()) {
             return;
         }
         if (isset(self::$instances[$model::class][$model->id])) {

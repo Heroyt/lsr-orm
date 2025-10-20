@@ -349,7 +349,7 @@ trait ModelConfigProvider
     /**
      * Get all Model's properties
      *
-     * @return array<string, PropertyConfig>
+     * @return array<non-empty-string, PropertyConfig>
      */
     protected static function getProperties() : array {
         // Prevent infinite loop due to cyclic relations
@@ -426,6 +426,7 @@ trait ModelConfigProvider
                 $hooks[] = $static ? [static::class, $method] : $method;
             }
         }
+        /** @phpstan-ignore return.type */
         return $hooks;
     }
 
@@ -465,7 +466,7 @@ trait ModelConfigProvider
     }
 
     /**
-     * @return non-empty-string[]
+     * @return list<callable(int): void>
      */
     public static function findAfterExternalUpdate() : array {
         return static::findHooks(AfterExternalUpdate::class, true);

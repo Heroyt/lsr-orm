@@ -10,6 +10,7 @@ use Lsr\Db\DB;
 use Lsr\Db\Dibi\Fluent;
 use Lsr\Orm\Exceptions\ModelNotFoundException;
 use Lsr\Orm\Exceptions\ValidationException;
+use Lsr\Orm\Interfaces\LoadedModel;
 
 /**
  * @template T of Model
@@ -143,26 +144,28 @@ class ModelQuery
     }
 
     /**
-     * @return T|null
+     * @return (T&LoadedModel)|null
      */
     public function first(bool $cache = true): ?Model {
         $row = $this->query->fetch(cache: $cache);
         if (!isset($row)) {
             return null;
         }
+        /** @var class-string<T&LoadedModel> $className */
         $className = $this->className;
         return new $className($row->{$this->className::getPrimaryKey()}, $row);
     }
 
     /**
-     * @return array<int,T>
+     * @return array<int,T&LoadedModel>
      * @throws ValidationException
      */
     public function get(bool $cache = true): array {
         $pk = $this->className::getPrimaryKey();
         $rows = $this->query->fetchAll(cache: $cache);
+        /** @var class-string<T&LoadedModel> $className */
         $className = $this->className;
-        /** @var array<int, T> $models */
+        /** @var array<int, T&LoadedModel> $models */
         $models = [];
         foreach ($rows as $row) {
             assert(is_int($row->$pk));

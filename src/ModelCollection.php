@@ -145,7 +145,6 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      */
     public function last(?callable $filter = null) : ?Model {
         if ($filter === null) {
-            /** @phpstan-ignore return.type */
             return last($this->models);
         }
         return array_find(
@@ -250,14 +249,23 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
             throw new RuntimeException('Property "'.$this->keyProperty.'" does not exist on '.$model::class);
         }
 
-        if ($model->{$this->keyProperty} === null || !isset($this->models[$model->{$this->keyProperty}])) {
+        $key = $model->{$this->keyProperty};
+        if (!is_int($key) || !isset($this->models[$key])) {
             return $this;
         }
-        unset($this->models[$model->{$this->keyProperty}]);
+        unset($this->models[$key]);
         return $this;
     }
 
     public function contains(Model $model) : bool {
         return isset($this->models[$model->id]);
+    }
+
+    /**
+     * @return array<int,T>
+     */
+    public function toArray(): array
+    {
+        return $this->models;
     }
 }

@@ -56,8 +56,9 @@ trait WithSerialization
             $params = $method->getParameters();
             if (
                 count($params) !== 1
-                || $params[0]->getType() === null
-                || $params[0]->getType()->getName() !== 'array'
+                || ($type = $params[0]->getType()) === null
+                || !($type instanceof \ReflectionNamedType)
+                || $type->getName() !== 'array'
             ) {
                 throw new \RuntimeException(
                     sprintf(
@@ -68,9 +69,10 @@ trait WithSerialization
                 );
             }
             $returnType = $method->getReturnType();
-            if ($returnType === null 
-                || !($returnType instanceof \ReflectionNamedType) 
-                || $returnType->getName() !== 'array') {
+            if (
+                !($returnType instanceof \ReflectionNamedType)
+                || $returnType->getName() !== 'array'
+            ) {
                 throw new \RuntimeException(
                     sprintf(
                         'Method %s::%s must return an array.',
@@ -81,6 +83,7 @@ trait WithSerialization
             }
 
             // Call the method and merge its result into the data array
+            /** @var array<string, mixed> $data */
             $data = $method->invoke($this, $data);
         }
 

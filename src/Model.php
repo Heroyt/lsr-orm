@@ -20,6 +20,7 @@ use Lsr\Orm\Config\ModelConfig;
 use Lsr\Orm\Config\ModelConfigProvider;
 use Lsr\Orm\Exceptions\ModelNotFoundException;
 use Lsr\Orm\Exceptions\ValidationException;
+use Lsr\Orm\Interfaces\LoadedModel;
 use Lsr\Orm\Traits\Cacheable;
 use Lsr\Orm\Traits\ModelFetch;
 use Lsr\Orm\Traits\ModelSave;
@@ -83,6 +84,18 @@ abstract class Model implements JsonSerializable, ArrayAccess
     }
 
     /**
+     * Check if the model is attached (loaded) to a database row.
+     *
+     * @return bool
+     * @phpstan-assert-if-true !null $this->id
+     * @phpstan-assert-if-true LoadedModel $this
+     */
+    public function isLoaded(): bool
+    {
+        return $this->id !== null;
+    }
+
+    /**
      * Checks if a model with given ID exists in database
      *
      * @throws Exception
@@ -96,7 +109,7 @@ abstract class Model implements JsonSerializable, ArrayAccess
     /**
      * Get all models
      *
-     * @return static[]
+     * @return (static&LoadedModel)[]
      * @throws ValidationException
      */
     public static function getAll() : array {
@@ -109,12 +122,13 @@ abstract class Model implements JsonSerializable, ArrayAccess
      * @param  int  $id
      * @param  Row|null  $row
      *
-     * @return static
+     * @return static&LoadedModel
      * @throws DirectoryCreationException
      * @throws ModelNotFoundException
      * @throws ValidationException
      */
     public static function get(int $id, ?Row $row = null) : static {
+        /** @phpstan-ignore return.type */
         return ModelRepository::getInstance(static::class, $id) ?? new static($id, $row);
     }
 
