@@ -17,6 +17,7 @@ use Lsr\Orm\Attributes\Relations\ManyToMany;
 use Lsr\Orm\Attributes\Relations\ManyToOne;
 use Lsr\Orm\Attributes\Relations\OneToMany;
 use Lsr\Orm\Attributes\Relations\OneToOne;
+use Lsr\Orm\Attributes\Transform;
 use Lsr\Orm\Config\ModelConfig;
 use Lsr\Orm\Exceptions\ModelNotFoundException;
 use Lsr\Orm\Exceptions\UndefinedPropertyException;
@@ -25,6 +26,7 @@ use Lsr\Orm\Interfaces\InsertExtendInterface;
 use Lsr\Orm\LoadingType;
 use Lsr\Orm\Model;
 use Lsr\Orm\ModelCollection;
+use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionException;
 use RuntimeException;
@@ -445,6 +447,17 @@ trait ModelFetch
                 case 'bool':
                     $value = (bool) $value;
                     break;
+            }
+        }
+
+        // Custom transform after fetching from DB
+        if ($property['hasTransform']) {
+            $propertyReflection = $this::getReflection()->getProperty($name);
+            $transformAttributes = $propertyReflection->getAttributes(Transform::class, ReflectionAttribute::IS_INSTANCEOF);
+            foreach ($transformAttributes as $attribute) {
+                /** @var Transform $transformInstance */
+                $transformInstance = $attribute->newInstance();
+                $value = $transformInstance->transformLoad($value, $this);
             }
         }
 

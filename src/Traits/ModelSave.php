@@ -12,6 +12,7 @@ use Lsr\Orm\Attributes\Relations\ManyToMany;
 use Lsr\Orm\Attributes\Relations\ManyToOne;
 use Lsr\Orm\Attributes\Relations\OneToMany;
 use Lsr\Orm\Attributes\Relations\OneToOne;
+use Lsr\Orm\Attributes\Transform;
 use Lsr\Orm\Config\ModelConfig;
 use Lsr\Orm\Exceptions\ValidationException;
 use Lsr\Orm\Interfaces\InsertExtendInterface;
@@ -185,12 +186,27 @@ trait ModelSave
                 continue;
             }
 
+            // Prepare possible transform function
+            $maybeTransformForSave = function (mixed $value) use ($property, $propertyName): mixed {
+                // Custom transform after fetching from DB
+                if ($property['hasTransform']) {
+                    $propertyReflection = $this::getReflection()->getProperty($propertyName);
+                    $transformAttributes = $propertyReflection->getAttributes(Transform::class, \ReflectionAttribute::IS_INSTANCEOF);
+                    foreach ($transformAttributes as $attribute) {
+                        /** @var Transform $transformInstance */
+                        $transformInstance = $attribute->newInstance();
+                        $value = $transformInstance->transformSave($value, $this);
+                    }
+                }
+                return $value;
+            };
+
             $columnName = Strings::toSnakeCase($propertyName);
 
             // Handle enum values
             if ($property['isEnum']) {
                 assert($this->$propertyName instanceof BackedEnum);
-                $data[$columnName] = $this->$propertyName->value;
+                $data[$columnName] = $maybeTransformForSave($this->$propertyName->value);
                 continue;
             }
 
@@ -199,7 +215,7 @@ trait ModelSave
                 continue;
             }
 
-            $data[$columnName] = $this->$propertyName ?? null;
+            $data[$columnName] = $maybeTransformForSave($this->$propertyName ?? null);
         }
         return $data;
     }

@@ -36,6 +36,7 @@ use Lsr\Orm\Model;
  *     type: class-string|string,
  *     relation:null|RelationConfig,
  *     isVirtual?: bool,
+ *     hasTransform?: bool,
  * }
  */
 abstract class ModelConfig

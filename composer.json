@@ -1,7 +1,7 @@
 {
   "name": "lsr/orm",
   "description": "Laser framework core - ORM",
-  "version": "0.3.15",
+  "version": "0.3.16",
   "repositories": [
     {
       "type": "composer",
@@ -45,7 +45,7 @@
   ],
   "minimum-stability": "stable",
   "require": {
-    "php": ">= 8.4",
+    "php": ">=8.4",
     "lsr/logging": "^0.3",
     "lsr/cache": "^0.3",
     "lsr/serializer": "^0.3",

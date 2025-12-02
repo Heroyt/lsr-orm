@@ -22,6 +22,7 @@ use Lsr\Orm\Attributes\Relations\ManyToOne;
 use Lsr\Orm\Attributes\Relations\ModelRelation;
 use Lsr\Orm\Attributes\Relations\OneToMany;
 use Lsr\Orm\Attributes\Relations\OneToOne;
+use Lsr\Orm\Attributes\Transform;
 use Lsr\Orm\Interfaces\InsertExtendInterface;
 use Lsr\Orm\Model;
 use Lsr\Orm\ModelCollection;
@@ -244,6 +245,7 @@ trait ModelConfigProvider
                 'type'         => null,
                 'relation'     => null,
                 'isVirtual'    => $property->isVirtual(),
+                'hasTransform' => !empty($property->getAttributes(Transform::class, ReflectionAttribute::IS_INSTANCEOF)),
             ];
             if ($property->hasType()) {
                 // Check enum and date values

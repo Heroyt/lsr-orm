@@ -22,6 +22,7 @@ use Mocks\Models\ModelE;
 use Mocks\Models\ModelInvalidInstantiate;
 use Mocks\Models\ModelWithRelationFactories;
 use Mocks\Models\ModelWithTimestamps;
+use Mocks\Models\ModelWithTransforms;
 use Mocks\Models\QueryModel;
 use Nette\Caching\Storages\DevNullStorage;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
@@ -131,6 +132,25 @@ trait DbHelpers
             CREATE TABLE modelsWithRelationFactories ( 
                 id INTEGER PRIMARY KEY autoincrement NOT NULL , 
                 name CHAR(60) NOT NULL
+            );
+        SQL,
+        ModelWithTransforms::TABLE => <<<SQL
+            CREATE TABLE model_with_transforms (
+                id_model INTEGER PRIMARY KEY autoincrement NOT NULL,
+                lowercase_name CHAR(255) NOT NULL,
+                lowercase_loaded_name CHAR(255) NOT NULL,
+                clamped_value INT NOT NULL,
+                clamped_value_on_save INT NOT NULL,
+                clamped_value_on_load INT NOT NULL,
+                padded_value CHAR(255) NOT NULL,
+                padded_value_on_save CHAR(255) NOT NULL,
+                padded_value_on_load CHAR(255) NOT NULL,
+                truncated_value CHAR(255) NOT NULL,
+                truncated_value_on_save CHAR(255) NOT NULL,
+                truncated_value_on_load CHAR(255) NOT NULL,
+                trimmed_value CHAR(255) NOT NULL,
+                trimmed_value_on_save CHAR(255) NOT NULL,
+                trimmed_value_on_load CHAR(255) NOT NULL
             );
         SQL,
     ];
@@ -430,7 +450,7 @@ trait DbHelpers
         );
 
         // Create all tables
-        foreach (self::TABLES as $sql) {
+        foreach (static::TABLES as $sql) {
             try {
                 DB::getConnection()->query($sql);
             } catch (Exception $e) {
