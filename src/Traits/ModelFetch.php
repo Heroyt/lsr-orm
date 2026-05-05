@@ -451,7 +451,7 @@ trait ModelFetch
         }
 
         // Custom transform after fetching from DB
-        if ($property['hasTransform']) {
+        if (array_key_exists('hasTransform', $property) && $property['hasTransform']) {
             $propertyReflection = $this::getReflection()->getProperty($name);
             $transformAttributes = $propertyReflection->getAttributes(Transform::class, ReflectionAttribute::IS_INSTANCEOF);
             foreach ($transformAttributes as $attribute) {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Lsr\Orm\Traits;
 
 use BackedEnum;
+use Dibi\Drivers\PdoDriver;
 use Dibi\Exception;
 use Error;
 use Lsr\Db\DB;
@@ -28,7 +29,162 @@ use ReflectionProperty;
  */
 trait ModelSave
 {
+    /**
+     * @param array<string, mixed> $queryData
+     * @return array<int, array{column: string, value: mixed, type: int}>
+     */
+    private function normalizeNativeQueryData(array $queryData): array
+    {
+        $normalized = [];
+        foreach ($queryData as $key => $value) {
+            $parts = explode('%', $key, 2);
+            $column = $parts[0];
+            $modifier = $parts[1] ?? null;
 
+            if ($value instanceof \DateTimeInterface) {
+                $value = $value->format('Y-m-d H:i:s');
+            } elseif (is_bool($value)) {
+                $value = (int)$value;
+            }
+
+            $type = match (true) {
+                $modifier === 'bin' => \PDO::PARAM_LOB,
+                is_int($value) => \PDO::PARAM_INT,
+                $value === null => \PDO::PARAM_NULL,
+                default => \PDO::PARAM_STR,
+            };
+
+            $normalized[] = [
+                'column' => $column,
+                'value' => $value,
+                'type' => $type,
+            ];
+        }
+        return $normalized;
+    }
+
+    /**
+     * @param array<string, mixed> $queryData
+     */
+    private function tryNativePdoInsert(array $queryData): bool
+    {
+        $driver = DB::getConnection()->connection->getDriver();
+        if (!$driver instanceof PdoDriver) {
+            return false;
+        }
+
+        $pdo = $driver->getResource();
+        if (!$pdo instanceof \PDO) {
+            return false;
+        }
+
+        $normalized = $this->normalizeNativeQueryData($queryData);
+        $columns = array_map(static fn(array $item): string => $item['column'], $normalized);
+        $quotedColumns = array_map(
+            static fn(string $column): string => '`' . str_replace('`', '``', $column) . '`',
+            $columns
+        );
+        $placeholders = array_map(
+            static fn(string $column): string => ':' . $column,
+            $columns
+        );
+        $sql = sprintf(
+            'INSERT INTO `%s` (%s) VALUES (%s)',
+            str_replace('`', '``', $this::TABLE),
+            implode(', ', $quotedColumns),
+            implode(', ', $placeholders)
+        );
+        $statement = $pdo->prepare($sql);
+        if ($statement === false) {
+            return false;
+        }
+        foreach ($normalized as $item) {
+            $statement->bindValue(':' . $item['column'], $item['value'], $item['type']);
+        }
+        if (!$statement->execute()) {
+            return false;
+        }
+        $this->id = (int)$pdo->lastInsertId() ?: null;
+        return $this->id !== null;
+    }
+
+    /**
+     * @param array<string, mixed> $queryData
+     */
+    private function tryNativePdoUpdate(array $queryData): bool
+    {
+        $driver = DB::getConnection()->connection->getDriver();
+        if (!$driver instanceof PdoDriver) {
+            return false;
+        }
+
+        $pdo = $driver->getResource();
+        if (!$pdo instanceof \PDO) {
+            return false;
+        }
+
+        $normalized = $this->normalizeNativeQueryData($queryData);
+        if ($normalized === []) {
+            return true;
+        }
+
+        $assignments = [];
+        foreach ($normalized as $item) {
+            $assignments[] = '`' . str_replace('`', '``', $item['column']) . '` = :' . $item['column'];
+        }
+        $sql = sprintf(
+            'UPDATE `%s` SET %s WHERE `%s` = :_primary_id',
+            str_replace('`', '``', $this::TABLE),
+            implode(', ', $assignments),
+            str_replace('`', '``', $this::getPrimaryKey())
+        );
+        $statement = $pdo->prepare($sql);
+        if ($statement === false) {
+            return false;
+        }
+        foreach ($normalized as $item) {
+            $statement->bindValue(':' . $item['column'], $item['value'], $item['type']);
+        }
+        $statement->bindValue(':_primary_id', $this->id, \PDO::PARAM_INT);
+        return $statement->execute();
+    }
+
+    /**
+     * @template T of Model
+     * @param class-string<Model> $relationClass
+     * @param ModelCollection<T> $model
+     */
+    private function resolveOneToManyRelationClass(
+        string          $propertyName,
+        string          $relationClass,
+        ModelCollection $model
+    ): string
+    {
+        if ($relationClass::TABLE !== Model::TABLE) {
+            return $relationClass;
+        }
+
+        foreach ($model as $relatedModel) {
+            if ($relatedModel instanceof Model
+                && $relatedModel::TABLE !== Model::TABLE
+            ) {
+                return $relatedModel::class;
+            }
+        }
+
+        $classProperty = preg_replace('/s$/', '', $propertyName) . 'Class';
+        if (property_exists($this, $classProperty)
+            && is_string($this->$classProperty)
+            && is_subclass_of($this->$classProperty, Model::class)
+            && $this->$classProperty::TABLE !== Model::TABLE
+        ) {
+            /** @var class-string<Model> $resolvedClass */
+            $resolvedClass = $this->$classProperty;
+            return $resolvedClass;
+        }
+
+        return $relationClass;
+    }
     /**
      * Save the model into a database
      *
@@ -69,7 +225,9 @@ trait ModelSave
         if (!empty($queryData)) {
             // Update only if there are any changes
             try {
-                DB::update($this::TABLE, $queryData, ['%n = %i', $this::getPrimaryKey(), $this->id]);
+                if (!$this->tryNativePdoUpdate($queryData)) {
+                    DB::update($this::TABLE, $queryData, ['%n = %i', $this::getPrimaryKey(), $this->id]);
+                }
             } catch (Exception $e) {
                 $this->getLogger()->error('Error running update query: '.$e->getMessage());
                 $this->getLogger()->debug('Query: '.$e->getSql());
@@ -189,7 +347,7 @@ trait ModelSave
             // Prepare possible transform function
             $maybeTransformForSave = function (mixed $value) use ($property, $propertyName): mixed {
                 // Custom transform after fetching from DB
-                if ($property['hasTransform']) {
+                if (array_key_exists('hasTransform', $property) && $property['hasTransform']) {
                     $propertyReflection = $this::getReflection()->getProperty($propertyName);
                     $transformAttributes = $propertyReflection->getAttributes(Transform::class, \ReflectionAttribute::IS_INSTANCEOF);
                     foreach ($transformAttributes as $attribute) {
@@ -233,9 +391,6 @@ trait ModelSave
                 continue;
             }
 
-            /** @var class-string<Model> $relationClass */
-            $relationClass = $property['relation']['class'];
-
             $reflection = new ReflectionProperty($this, $propertyName);
             if (!$reflection->isInitialized($this)) {
                 continue;
@@ -243,6 +398,13 @@ trait ModelSave
 
             $model = $reflection->getValue($this);
             assert($model instanceof ModelCollection);
+
+            /** @var class-string<Model> $relationClass */
+            $relationClass = $this->resolveOneToManyRelationClass(
+                $propertyName,
+                $property['relation']['class'],
+                $model
+            );
 
             // Find the original models' ids
             /** @var int[] $originalIds */
@@ -475,8 +637,10 @@ trait ModelSave
         $queryData = $this->getQueryData(false);
 
         try {
-            DB::insert($this::TABLE, $queryData);
-            $this->id = DB::getInsertId();
+            if (!$this->tryNativePdoInsert($queryData)) {
+                DB::insert($this::TABLE, $queryData);
+                $this->id = DB::getInsertId();
+            }
         } catch (Exception $e) {
             $this->getLogger()->error('Error running insert query: '.$e->getMessage());
             $this->getLogger()->debug('Query: '.$e->getSql());

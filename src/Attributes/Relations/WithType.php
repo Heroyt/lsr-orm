@@ -24,7 +24,7 @@ trait WithType
             if (!isset($this->nullable)) {
                 $this->nullable = false;
                 if ($property->hasType()) {
-                    $this->nullable = $property->getType()?->allowsNull() ?? false;
+                    $this->nullable = $property->getType()->allowsNull();
                 }
             }
             return (object) ['class' => $this->class, 'nullable' => $this->nullable];
