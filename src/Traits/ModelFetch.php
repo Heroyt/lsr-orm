@@ -375,6 +375,13 @@ trait ModelFetch
             }
         }
 
+        // Handle null values for nullable properties
+        if ($value === null && $property['allowsNull']) {
+            $this->$name = null;
+            $this->originalValues[$name] = null;
+            return;
+        }
+
         if (!$property['isBuiltin']) {
             if ($property['isDateTime']) {
                 /**
