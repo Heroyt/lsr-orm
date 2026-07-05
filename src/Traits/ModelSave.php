@@ -363,8 +363,14 @@ trait ModelSave
 
             // Handle enum values
             if ($property['isEnum']) {
-                assert($this->$propertyName instanceof BackedEnum);
-                $data[$columnName] = $maybeTransformForSave($this->$propertyName->value);
+                $value = $this->$propertyName ?? null;
+                if ($value === null && !$property['allowsNull']) {
+                    throw new ValidationException(
+                        'Cannot assign null to a non nullable enum property '.$this::class.'::$'.$propertyName
+                    );
+                }
+                assert($value === null || $value instanceof BackedEnum);
+                $data[$columnName] = $maybeTransformForSave($value?->value);
                 continue;
             }
 

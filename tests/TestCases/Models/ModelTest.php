@@ -11,6 +11,7 @@ namespace TestCases\Models;
 use Dibi\Row;
 use Lsr\Db\DB;
 use Lsr\Orm\Exceptions\ModelNotFoundException;
+use Lsr\Orm\Exceptions\ValidationException;
 use Mocks\Models\ModelA;
 use Mocks\Models\ModelB;
 use Mocks\Models\ModelBLazy;
@@ -22,6 +23,7 @@ use Mocks\Models\ModelInvalidInstantiate;
 use Mocks\Models\ModelInvalidInstantiate2;
 use Mocks\Models\ModelPk1;
 use Mocks\Models\ModelPk2;
+use Mocks\Models\ModelWithNullableEnum;
 use Mocks\Models\ModelWithTimestamps;
 use Mocks\Models\SimpleData;
 use Mocks\Models\TestEnum;
@@ -222,6 +224,22 @@ class ModelTest extends TestCase
             'c'
         );
         self::assertEquals(['value0' => 'a', 'value1' => 'b', 'value2' => 'c'], $model3->getQueryData());
+
+        $model4 = new ModelWithNullableEnum();
+        self::assertEquals(['nullable_type' => null], $model4->getQueryData());
+
+        $model4->nullableType = TestEnum::B;
+        self::assertEquals(['nullable_type' => TestEnum::B->value], $model4->getQueryData());
+    }
+
+    public function testGetQueryDataThrowsForNullNonNullableEnum(): void {
+        $model = new ModelB();
+        $model->description = 'abcd';
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Cannot assign null to a non nullable enum property');
+
+        $model->getQueryData(false);
     }
 
     public function testSave(): void {
