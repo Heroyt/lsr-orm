@@ -59,6 +59,8 @@ final class ModelRepository
         if (!$model->isLoaded()) {
             return;
         }
+        /** @var Model&LoadedModel $model */
+        assert($model->id !== null);
         self::$instances[$model::class] ??= [];
         self::$instances[$model::class][$model->id] = $model;
     }

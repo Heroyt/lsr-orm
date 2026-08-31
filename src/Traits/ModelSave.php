@@ -165,9 +165,7 @@ trait ModelSave
         }
 
         foreach ($model as $relatedModel) {
-            if ($relatedModel instanceof Model
-                && $relatedModel::TABLE !== Model::TABLE
-            ) {
+            if ($relatedModel::TABLE !== Model::TABLE) {
                 return $relatedModel::class;
             }
         }
