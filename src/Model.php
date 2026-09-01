@@ -21,12 +21,14 @@ use Lsr\Orm\Config\ModelConfigProvider;
 use Lsr\Orm\Exceptions\ModelNotFoundException;
 use Lsr\Orm\Exceptions\ValidationException;
 use Lsr\Orm\Interfaces\LoadedModel;
+use Lsr\Orm\Lifecycle\ModelLifecycleEvent;
 use Lsr\Orm\Traits\Cacheable;
 use Lsr\Orm\Traits\ModelFetch;
 use Lsr\Orm\Traits\ModelSave;
 use Lsr\Orm\Traits\WithArrayAccess;
 use Lsr\Orm\Traits\WithLogger;
 use Lsr\Orm\Traits\WithSerialization;
+use Throwable;
 
 /**
  * @implements ArrayAccess<string, mixed>
@@ -99,10 +101,30 @@ abstract class Model implements JsonSerializable, ArrayAccess
      *
      * @throws Exception
      */
-    public static function exists(int $id, bool $cache = true) : bool {
-        return DB::select(static::TABLE, '*')
-                 ->where('%n = %i', static::getPrimaryKey(), $id)
-            ->exists($cache);
+    public static function exists(int $id, bool $cache = true): bool {
+        $scope = ModelRepository::beginLifecycle(
+            ModelLifecycleEvent::QUERY,
+            ModelLifecycleEvent::EXISTS,
+            static::class,
+        );
+        try {
+            $exists = DB::select(static::TABLE, '*')
+                        ->where('%n = %i', static::getPrimaryKey(), $id)
+                ->exists($cache);
+        } catch (Throwable $exception) {
+            ModelRepository::completeLifecycle(
+                $scope,
+                ModelLifecycleEvent::ERROR,
+                errorType: $exception::class,
+            );
+            throw $exception;
+        }
+        ModelRepository::completeLifecycle(
+            $scope,
+            ModelLifecycleEvent::SUCCESS,
+            $exists ? 1 : 0,
+        );
+        return $exists;
     }
 
     /**

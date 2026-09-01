@@ -16,12 +16,14 @@ use Lsr\Orm\Attributes\Relations\OneToOne;
 use Lsr\Orm\Attributes\Transform;
 use Lsr\Orm\Config\ModelConfig;
 use Lsr\Orm\Exceptions\ValidationException;
+use Lsr\Orm\Lifecycle\ModelLifecycleEvent;
 use Lsr\Orm\Interfaces\InsertExtendInterface;
 use Lsr\Orm\Model;
 use Lsr\Orm\ModelCollection;
 use Lsr\Orm\ModelRepository;
 use ReflectionException;
 use ReflectionProperty;
+use Throwable;
 
 /**
  * @phpstan-import-type RelationConfig from ModelConfig
@@ -208,7 +210,30 @@ trait ModelSave
      * @throws ValidationException
      * @phpstan-assert-if-true !null $this->id
      */
-    public function update() : bool {
+    public function update(): bool {
+        $scope = ModelRepository::beginLifecycle(
+            ModelLifecycleEvent::MUTATION,
+            ModelLifecycleEvent::UPDATE,
+            $this::class,
+        );
+        try {
+            $result = $this->performUpdate();
+        } catch (Throwable $exception) {
+            ModelRepository::completeLifecycle(
+                $scope,
+                ModelLifecycleEvent::ERROR,
+                errorType: $exception::class,
+            );
+            throw $exception;
+        }
+        ModelRepository::completeLifecycle(
+            $scope,
+            $result ? ModelLifecycleEvent::SUCCESS : ModelLifecycleEvent::FAILURE,
+        );
+        return $result;
+    }
+
+    private function performUpdate(): bool {
         if (!$this->isLoaded()) {
             return false;
         }
@@ -589,7 +614,30 @@ trait ModelSave
      *
      * @return bool
      */
-    public function delete() : bool {
+    public function delete(): bool {
+        $scope = ModelRepository::beginLifecycle(
+            ModelLifecycleEvent::MUTATION,
+            ModelLifecycleEvent::DELETE,
+            $this::class,
+        );
+        try {
+            $result = $this->performDelete();
+        } catch (Throwable $exception) {
+            ModelRepository::completeLifecycle(
+                $scope,
+                ModelLifecycleEvent::ERROR,
+                errorType: $exception::class,
+            );
+            throw $exception;
+        }
+        ModelRepository::completeLifecycle(
+            $scope,
+            $result ? ModelLifecycleEvent::SUCCESS : ModelLifecycleEvent::FAILURE,
+        );
+        return $result;
+    }
+
+    private function performDelete(): bool {
         if (!$this->isLoaded()) {
             return false;
         }
@@ -627,7 +675,30 @@ trait ModelSave
      * @throws ReflectionException
      * @phpstan-assert-if-true !null $this->id
      */
-    public function insert() : bool {
+    public function insert(): bool {
+        $scope = ModelRepository::beginLifecycle(
+            ModelLifecycleEvent::MUTATION,
+            ModelLifecycleEvent::INSERT,
+            $this::class,
+        );
+        try {
+            $result = $this->performInsert();
+        } catch (Throwable $exception) {
+            ModelRepository::completeLifecycle(
+                $scope,
+                ModelLifecycleEvent::ERROR,
+                errorType: $exception::class,
+            );
+            throw $exception;
+        }
+        ModelRepository::completeLifecycle(
+            $scope,
+            $result ? ModelLifecycleEvent::SUCCESS : ModelLifecycleEvent::FAILURE,
+        );
+        return $result;
+    }
+
+    private function performInsert(): bool {
         if ($this->isLoaded()) {
             return false;
         }

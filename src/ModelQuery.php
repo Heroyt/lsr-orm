@@ -11,6 +11,8 @@ use Lsr\Db\Dibi\Fluent;
 use Lsr\Orm\Exceptions\ModelNotFoundException;
 use Lsr\Orm\Exceptions\ValidationException;
 use Lsr\Orm\Interfaces\LoadedModel;
+use Lsr\Orm\Lifecycle\ModelLifecycleEvent;
+use Throwable;
 
 /**
  * @template T of Model
@@ -140,20 +142,61 @@ class ModelQuery
     }
 
     public function count(bool $cache = true): int {
-        return $this->query->count(cache: $cache);
+        $scope = ModelRepository::beginLifecycle(
+            ModelLifecycleEvent::QUERY,
+            ModelLifecycleEvent::COUNT,
+            $this->className,
+        );
+        try {
+            $count = $this->query->count(cache: $cache);
+        } catch (Throwable $exception) {
+            ModelRepository::completeLifecycle(
+                $scope,
+                ModelLifecycleEvent::ERROR,
+                errorType: $exception::class,
+            );
+            throw $exception;
+        }
+        ModelRepository::completeLifecycle(
+            $scope,
+            ModelLifecycleEvent::SUCCESS,
+            $count,
+        );
+        return $count;
     }
 
     /**
      * @return (T&LoadedModel)|null
      */
     public function first(bool $cache = true): ?Model {
-        $row = $this->query->fetch(cache: $cache);
-        if (!isset($row)) {
-            return null;
+        $scope = ModelRepository::beginLifecycle(
+            ModelLifecycleEvent::QUERY,
+            ModelLifecycleEvent::FIRST,
+            $this->className,
+        );
+        try {
+            $row = $this->query->fetch(cache: $cache);
+            if (!isset($row)) {
+                $model = null;
+            } else {
+                /** @var class-string<T&LoadedModel> $className */
+                $className = $this->className;
+                $model = new $className($row->{$this->className::getPrimaryKey()}, $row);
+            }
+        } catch (Throwable $exception) {
+            ModelRepository::completeLifecycle(
+                $scope,
+                ModelLifecycleEvent::ERROR,
+                errorType: $exception::class,
+            );
+            throw $exception;
         }
-        /** @var class-string<T&LoadedModel> $className */
-        $className = $this->className;
-        return new $className($row->{$this->className::getPrimaryKey()}, $row);
+        ModelRepository::completeLifecycle(
+            $scope,
+            ModelLifecycleEvent::SUCCESS,
+            $model === null ? 0 : 1,
+        );
+        return $model;
     }
 
     /**
@@ -161,19 +204,38 @@ class ModelQuery
      * @throws ValidationException
      */
     public function get(bool $cache = true): array {
-        $pk = $this->className::getPrimaryKey();
-        $rows = $this->query->fetchAll(cache: $cache);
-        /** @var class-string<T&LoadedModel> $className */
-        $className = $this->className;
-        /** @var array<int, T&LoadedModel> $models */
-        $models = [];
-        foreach ($rows as $row) {
-            assert(is_int($row->$pk));
-            try {
-                $models[$row->{$pk}] = $className::get($row->$pk, $row);
-            } catch (ModelNotFoundException) {
+        $scope = ModelRepository::beginLifecycle(
+            ModelLifecycleEvent::QUERY,
+            ModelLifecycleEvent::GET,
+            $this->className,
+        );
+        try {
+            $pk = $this->className::getPrimaryKey();
+            $rows = $this->query->fetchAll(cache: $cache);
+            /** @var class-string<T&LoadedModel> $className */
+            $className = $this->className;
+            /** @var array<int, T&LoadedModel> $models */
+            $models = [];
+            foreach ($rows as $row) {
+                assert(is_int($row->$pk));
+                try {
+                    $models[$row->{$pk}] = $className::get($row->$pk, $row);
+                } catch (ModelNotFoundException) {
+                }
             }
+        } catch (Throwable $exception) {
+            ModelRepository::completeLifecycle(
+                $scope,
+                ModelLifecycleEvent::ERROR,
+                errorType: $exception::class,
+            );
+            throw $exception;
         }
+        ModelRepository::completeLifecycle(
+            $scope,
+            ModelLifecycleEvent::SUCCESS,
+            count($models),
+        );
         return $models;
     }
 }

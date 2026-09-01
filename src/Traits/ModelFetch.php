@@ -25,11 +25,14 @@ use Lsr\Orm\Exceptions\ValidationException;
 use Lsr\Orm\Interfaces\InsertExtendInterface;
 use Lsr\Orm\LoadingType;
 use Lsr\Orm\Model;
+use Lsr\Orm\Lifecycle\ModelLifecycleEvent;
 use Lsr\Orm\ModelCollection;
+use Lsr\Orm\ModelRepository;
 use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionException;
 use RuntimeException;
+use Throwable;
 
 /**
  * @phpstan-import-type RelationConfig from ModelConfig
@@ -51,22 +54,48 @@ trait ModelFetch
      * @throws ModelNotFoundException
      * @throws ValidationException
      */
-    public function fetch(bool $refresh = false) : void {
+    public function fetch(bool $refresh = false): void {
         if (!isset($this->id) || $this->id <= 0) {
             throw new RuntimeException('Id needs to be set before fetching model\'s data.');
         }
-        if ($refresh || !isset($this->row)) {
-            /** @var Row|null $row */
-            $row = DB::select([$this::TABLE, 'a'], '*')
-                     ->where('%n = %i', $this::getPrimaryKey(), $this->id)
-                     ->cacheTags(...$this->getCacheTags())
-                     ->fetch();
-            $this->row = $row;
+        $querying = $refresh || !isset($this->row);
+        $scope = $querying
+            ? ModelRepository::beginLifecycle(
+                ModelLifecycleEvent::QUERY,
+                ModelLifecycleEvent::FETCH,
+                $this::class,
+            )
+            : null;
+        try {
+            if ($querying) {
+                /** @var Row|null $row */
+                $row = DB::select([$this::TABLE, 'a'], '*')
+                         ->where('%n = %i', $this::getPrimaryKey(), $this->id)
+                         ->cacheTags(...$this->getCacheTags())
+                         ->fetch();
+                $this->row = $row;
+            }
+            if (!isset($this->row)) {
+                throw new ModelNotFoundException(get_class($this) . ' model of ID ' . $this->id . ' was not found.');
+            }
+            $this->fillFromRow();
+        } catch (Throwable $exception) {
+            if ($querying) {
+                ModelRepository::completeLifecycle(
+                    $scope,
+                    ModelLifecycleEvent::ERROR,
+                    errorType: $exception::class,
+                );
+            }
+            throw $exception;
         }
-        if (!isset($this->row)) {
-            throw new ModelNotFoundException(get_class($this).' model of ID '.$this->id.' was not found.');
+        if ($querying) {
+            ModelRepository::completeLifecycle(
+                $scope,
+                ModelLifecycleEvent::SUCCESS,
+                1,
+            );
         }
-        $this->fillFromRow();
     }
 
     /**
@@ -74,7 +103,30 @@ trait ModelFetch
      * @throws ModelNotFoundException
      * @throws ValidationException
      */
-    protected function fillFromRow() : void {
+    protected function fillFromRow(): void {
+        $scope = ModelRepository::beginLifecycle(
+            ModelLifecycleEvent::HYDRATION,
+            ModelLifecycleEvent::HYDRATE,
+            $this::class,
+        );
+        try {
+            $this->hydrateFromRow();
+        } catch (Throwable $exception) {
+            ModelRepository::completeLifecycle(
+                $scope,
+                ModelLifecycleEvent::ERROR,
+                errorType: $exception::class,
+            );
+            throw $exception;
+        }
+        ModelRepository::completeLifecycle(
+            $scope,
+            ModelLifecycleEvent::SUCCESS,
+            1,
+        );
+    }
+
+    private function hydrateFromRow(): void {
         if (!isset($this->row)) {
             return;
         }

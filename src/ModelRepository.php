@@ -8,7 +8,10 @@ use Lsr\Logging\Logger;
 use Lsr\Orm\Attributes\Factory;
 use Lsr\Orm\Config\ModelConfig;
 use Lsr\Orm\Interfaces\LoadedModel;
+use Lsr\Orm\Lifecycle\ModelLifecycleHookInterface;
+use Lsr\Orm\Lifecycle\ModelLifecycleScopeInterface;
 use ReflectionClass;
+use Throwable;
 
 final class ModelRepository
 {
@@ -19,6 +22,8 @@ final class ModelRepository
 
     /** @var array<class-string<Model>, Logger> */
     private static array $loggers = [];
+
+    private static ?ModelLifecycleHookInterface $lifecycleHook = null;
 
     /** @var array<class-string<Model>, string> */
     public static array $cacheFileName = [];
@@ -37,6 +42,45 @@ final class ModelRepository
     public static array $reflections = [];
     /** @var Factory[] */
     public static array $factory = [];
+
+    public static function setLifecycleHook(?ModelLifecycleHookInterface $hook): void {
+        self::$lifecycleHook = $hook;
+    }
+
+    /**
+     * @param class-string<Model> $modelClass
+     * @internal
+     */
+    public static function beginLifecycle(
+        string $category,
+        string $operation,
+        string $modelClass,
+    ): ?ModelLifecycleScopeInterface {
+        if (self::$lifecycleHook === null) {
+            return null;
+        }
+        try {
+            return self::$lifecycleHook->captures($category)
+                ? self::$lifecycleHook->begin($category, $operation, $modelClass)
+                : null;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /** @internal */
+    public static function completeLifecycle(
+        ?ModelLifecycleScopeInterface $scope,
+        string $outcome,
+        ?int $resultCount = null,
+        ?string $errorType = null,
+    ): void {
+        try {
+            $scope?->complete($outcome, $resultCount, $errorType);
+        } catch (Throwable) {
+            // Lifecycle hooks must never affect model behavior.
+        }
+    }
 
     /**
      * @template T of Model
