@@ -257,7 +257,7 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
     }
 
     public function contains(Model $model): bool {
-        return isset($this->models[$model->id]);
+        return $model->id !== null && isset($this->models[$model->id]);
     }
 
     /**
