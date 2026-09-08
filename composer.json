@@ -13,8 +13,9 @@
     "test": "XDEBUG_MODE=coverage php -d memory_limit=1G ./vendor/bin/phpunit",
     "docs": "doxygen",
     "phpstan": "./vendor/bin/phpstan",
-    "phpcs": "./vendor/bin/phpcs",
-    "phpcbf": "./vendor/bin/phpcbf"
+    "cs:fix": "./vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.php",
+    "cbf": "@cs:fix",
+    "cs": "./vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.php --dry-run --diff"
   },
   "require-dev": {
     "roave/security-advisories": "dev-latest",
@@ -25,7 +26,7 @@
     "phpstan/phpstan-nette": "^2.0",
     "jetbrains/phpstorm-attributes": "^1.2",
     "fakerphp/faker": "^1.24",
-    "squizlabs/php_codesniffer": "^4",
+    "friendsofphp/php-cs-fixer": "^3.95",
     "symfony/console": "^8|^7"
   },
   "autoload": {
