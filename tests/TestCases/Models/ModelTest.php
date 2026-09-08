@@ -429,7 +429,7 @@ class ModelTest extends TestCase
         ModelInvalidInstantiate2::get(1);
     }
 
-    #[Depends('testGet'), Depends('testUpdate'), Depends('testSave')]
+    #[Depends('test_get'), Depends('test_update'), Depends('test_save')]
     public function test_timestamps(): void {
         $this->refreshData();
 
