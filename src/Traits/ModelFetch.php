@@ -235,14 +235,6 @@ trait ModelFetch
                      * @throws ModelNotFoundException
                      */
                     $factoryClosure = function () use ($factory, $id, $className, $property) {
-                        if ($id === null) {
-                            if ( ! $property['allowsNull']) {
-                                throw new ModelNotFoundException(
-                                    'Cannot find model ' . $className . ' (in relation ' . ($this::class) . '::$' . $property['name'] . ') for null id',
-                                );
-                            }
-                            return null;
-                        }
                         try {
                             return isset($factory) ?
                                 $factory->factoryClass::getById($id, $factory->defaultOptions)
