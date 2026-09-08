@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /** @noinspection PhpDocMissingThrowsInspection */
 
 /** @noinspection PhpUndefinedFieldInspection */
@@ -30,8 +32,8 @@ use Mocks\Models\TestEnum;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use function json_encode;
 
+use function json_encode;
 
 /**
  * Test suite for models
@@ -53,7 +55,7 @@ class ModelTest extends TestCase
         parent::tearDown();
     }
 
-    public function testConstruct(): void {
+    public function test_construct(): void {
         $this->refreshData();
 
         // Test row only
@@ -72,7 +74,7 @@ class ModelTest extends TestCase
         self::assertEquals(20, $model->age);
     }
 
-    public function testFetch(): void {
+    public function test_fetch(): void {
         $this->refreshData();
         $model = new ModelA();
         $model->id = 1;
@@ -81,14 +83,14 @@ class ModelTest extends TestCase
         self::assertEquals(20, $model->age);
     }
 
-    public function testInvalidFetch(): void {
+    public function test_invalid_fetch(): void {
         $model = new ModelA();
 
         $this->expectException(RuntimeException::class);
         $model->fetch();
     }
 
-    public function testGet(): void {
+    public function test_get(): void {
         $this->refreshData();
         $model1 = ModelA::get(1);
 
@@ -118,7 +120,7 @@ class ModelTest extends TestCase
         self::assertEquals('value2', $model4->data->value2);
     }
 
-    public function testRelations(): void {
+    public function test_relations(): void {
         $parent = ModelA::get(1);
 
         $modelEager = ModelB::get(1);
@@ -133,7 +135,7 @@ class ModelTest extends TestCase
         self::assertEquals($parent->name, $modelLazy->parent->name);
     }
 
-    public function testRelationsSave(): void {
+    public function test_relations_save(): void {
         $parent1 = ModelA::get(1);
         $parent2 = ModelA::get(2);
 
@@ -170,7 +172,7 @@ class ModelTest extends TestCase
         self::assertEquals(2, $testId);
     }
 
-    public function testGetAll(): void {
+    public function test_get_all(): void {
         $this->refreshData();
 
         $models = ModelA::getAll();
@@ -191,7 +193,7 @@ class ModelTest extends TestCase
         self::assertCount(1, $models[2]->children);
     }
 
-    public function testRepetitiveGet(): void {
+    public function test_repetitive_get(): void {
         $this->refreshData();
         $model1 = ModelA::get(1);
         $model2 = ModelA::get(1);
@@ -199,7 +201,7 @@ class ModelTest extends TestCase
         self::assertSame($model1, $model2);
     }
 
-    public function testGetQueryData(): void {
+    public function test_get_query_data(): void {
         $model = new ModelA();
         $model->name = 'test';
         $model->age = 10;
@@ -214,14 +216,14 @@ class ModelTest extends TestCase
         $model2->modelType = TestEnum::C;
         self::assertEquals(
             ['description' => 'abcd', 'model_a_id' => 99, 'model_type' => TestEnum::C->value],
-            $model2->getQueryData()
+            $model2->getQueryData(),
         );
 
         $model3 = new ModelC();
         $model3->value0 = 'a';
         $model3->data = new SimpleData(
             'b',
-            'c'
+            'c',
         );
         self::assertEquals(['value0' => 'a', 'value1' => 'b', 'value2' => 'c'], $model3->getQueryData());
 
@@ -232,7 +234,7 @@ class ModelTest extends TestCase
         self::assertEquals(['nullable_type' => TestEnum::B->value], $model4->getQueryData());
     }
 
-    public function testGetQueryDataThrowsForNullNonNullableEnum(): void {
+    public function test_get_query_data_throws_for_null_non_nullable_enum(): void {
         $model = new ModelB();
         $model->description = 'abcd';
 
@@ -242,7 +244,7 @@ class ModelTest extends TestCase
         $model->getQueryData(false);
     }
 
-    public function testSave(): void {
+    public function test_save(): void {
         $model = new ModelA();
         $model->name = 'test';
         $model->age = 10;
@@ -282,7 +284,7 @@ class ModelTest extends TestCase
         self::assertEquals($model->age, $row->age);
     }
 
-    public function testInsertInvalid(): void {
+    public function test_insert_invalid(): void {
         $model = new ModelInvalid();
         $model->column1 = 'asda';
         $model->column2 = 'asda';
@@ -290,7 +292,7 @@ class ModelTest extends TestCase
         self::assertFalse($model->save());
     }
 
-    public function testUpdateInvalid(): void {
+    public function test_update_invalid(): void {
         $model = new ModelInvalid();
         $model->column1 = 'asda';
         $model->column2 = 'asda';
@@ -300,7 +302,7 @@ class ModelTest extends TestCase
         self::assertFalse($model->update());
     }
 
-    public function testUpdate(): void {
+    public function test_update(): void {
         $model = ModelA::get(1);
 
         $model->name = 'testUpdate';
@@ -318,7 +320,7 @@ class ModelTest extends TestCase
         self::assertEquals($model->age, $row->age);
     }
 
-    public function testArrayAccess(): void {
+    public function test_array_access(): void {
         $model = ModelA::get(1);
 
         // Test get
@@ -335,7 +337,7 @@ class ModelTest extends TestCase
         self::assertFalse(isset($model['asdas']));
     }
 
-    public function testJsonSerialize(): void {
+    public function test_json_serialize(): void {
         $model = ModelA::get(1);
         $expected = [
             'name'     => $model->name,
@@ -356,7 +358,7 @@ class ModelTest extends TestCase
         self::assertEquals(json_encode($expected, JSON_THROW_ON_ERROR), json_encode($model, JSON_THROW_ON_ERROR));
     }
 
-    public function testPrimaryKeyGetting(): void {
+    public function test_primary_key_getting(): void {
         self::assertEquals('model_a_id', ModelA::getPrimaryKey());
         self::assertEquals('model_b_id', ModelB::getPrimaryKey());
         self::assertEquals('id', ModelInvalid::getPrimaryKey());
@@ -364,7 +366,7 @@ class ModelTest extends TestCase
         self::assertEquals('model_pk2_id', ModelPk2::getPrimaryKey());
     }
 
-    public function testExists(): void {
+    public function test_exists(): void {
         $this->refreshData();
         self::assertTrue(ModelA::exists(1));
         self::assertTrue(ModelA::exists(2));
@@ -372,14 +374,14 @@ class ModelTest extends TestCase
         self::assertFalse(ModelA::exists(4));
     }
 
-    public function testDelete(): void {
+    public function test_delete(): void {
         $this->refreshData();
         $model = ModelA::get(1);
 
         self::assertTrue($model->delete());
 
         self::assertNull(
-            DB::select(ModelA::TABLE, '*')->where('%n = %i', ModelA::getPrimaryKey(), 1)->fetch(cache: false)
+            DB::select(ModelA::TABLE, '*')->where('%n = %i', ModelA::getPrimaryKey(), 1)->fetch(cache: false),
         );
         unset($model);
 
@@ -387,7 +389,7 @@ class ModelTest extends TestCase
         ModelA::get(1);
     }
 
-    public function testDelete2(): void {
+    public function test_delete2(): void {
         $model = new ModelInvalid();
 
         self::assertFalse($model->delete());
@@ -397,7 +399,7 @@ class ModelTest extends TestCase
         self::assertFalse($model->delete());
     }
 
-    public function testManyToMany(): void {
+    public function test_many_to_many(): void {
         $model = ModelD::get(1);
 
         self::assertEquals('a', $model->name);
@@ -411,24 +413,24 @@ class ModelTest extends TestCase
         self::assertSame($model, $model2->models[1]);
     }
 
-    public function testInvalidInstantiate(): void {
+    public function test_invalid_instantiate(): void {
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage(
-            'Cannot initialize property ' . ModelInvalidInstantiate::class . '::val with no type.'
+            'Cannot initialize property ' . ModelInvalidInstantiate::class . '::val with no type.',
         );
         ModelInvalidInstantiate::get(1);
     }
 
-    public function testInvalidInstantiate2(): void {
+    public function test_invalid_instantiate2(): void {
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage(
-            'Cannot initialize property ' . ModelInvalidInstantiate2::class . '::val with type int.'
+            'Cannot initialize property ' . ModelInvalidInstantiate2::class . '::val with type int.',
         );
         ModelInvalidInstantiate2::get(1);
     }
 
     #[Depends('testGet'), Depends('testUpdate'), Depends('testSave')]
-    public function testTimestamps(): void {
+    public function test_timestamps(): void {
         $this->refreshData();
 
         $model = ModelWithTimestamps::get(1);

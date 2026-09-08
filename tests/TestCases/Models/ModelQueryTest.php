@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /** @noinspection PhpUnhandledExceptionInspection */
 
 namespace TestCases\Models;
@@ -33,12 +35,12 @@ class ModelQueryTest extends TestCase
         parent::tearDown();
     }
 
-    public function testOffset(): void {
+    public function test_offset(): void {
         $query = QueryModel::query()->offset(1);
         self::assertCount(3, $query->get());
     }
 
-    public function testGet(): void {
+    public function test_get(): void {
         $query = QueryModel::query();
         $models = $query->get();
         self::assertCount(4, $models);
@@ -49,7 +51,7 @@ class ModelQueryTest extends TestCase
         }
     }
 
-    public function testOrderBy(): void {
+    public function test_order_by(): void {
         $query = QueryModel::query()->orderBy('age');
         $models = array_values($query->get());
         self::assertEquals(null, $models[0]->age);
@@ -58,7 +60,7 @@ class ModelQueryTest extends TestCase
         self::assertEquals(99, $models[3]->age);
     }
 
-    public function testAsc(): void {
+    public function test_asc(): void {
         $query = QueryModel::query()->orderBy('age')->asc();
         $models = array_values($query->get());
         self::assertEquals(null, $models[0]->age);
@@ -68,20 +70,20 @@ class ModelQueryTest extends TestCase
 
     }
 
-    public function testJoin(): void {
+    public function test_join(): void {
         /** @var QueryModel[] $models */
         $models = QueryModel::query()
-                              ->join('data', 'b')
-                              ->on('a.id_model = b.id_model')
-                              ->where('b.model_type = %s', 'C')
-                              ->get(false);
+            ->join('data', 'b')
+            ->on('a.id_model = b.id_model')
+            ->where('b.model_type = %s', 'C')
+            ->get(false);
 
         self::assertCount(1, $models);
         self::assertEquals(3, first($models)->id);
 
     }
 
-    public function testDesc(): void {
+    public function test_desc(): void {
         $query = QueryModel::query()->orderBy('age')->desc();
         $models = array_values($query->get());
         self::assertEquals(null, $models[3]->age);
@@ -91,7 +93,7 @@ class ModelQueryTest extends TestCase
 
     }
 
-    public function testWhere(): void {
+    public function test_where(): void {
         $query = QueryModel::query()->where('age >= 20');
         $models = $query->get(false);
         self::assertCount(2, $models);
@@ -99,25 +101,25 @@ class ModelQueryTest extends TestCase
 
     }
 
-    public function testCount(): void {
+    public function test_count(): void {
         $count = QueryModel::query()->count();
         self::assertEquals(4, $count);
     }
 
-    public function testLimit(): void {
+    public function test_limit(): void {
         $models = QueryModel::query()->limit(2)->get();
         self::assertCount(2, $models);
 
     }
 
-    public function testFirst(): void {
+    public function test_first(): void {
         $model = QueryModel::query()->first();
         self::assertNotNull($model);
         self::assertInstanceOf(QueryModel::class, $model);
         self::assertEquals(1, $model->id);
     }
 
-    public function testFirstEmpty(): void {
+    public function test_first_empty(): void {
         $model = QueryModel::query()->where('1 = 0')->first();
         self::assertNull($model);
     }

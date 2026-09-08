@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace TestCases\Models;
@@ -11,18 +12,18 @@ class ModelWithRelationFactoriesTest extends TestCase
 {
     use DbHelpers;
 
-    public function setUp() : void {
+    public function setUp(): void {
         $this->initDb('dbRelationWithFactories');
 
         parent::setUp();
     }
 
-    public function tearDown() : void {
+    public function tearDown(): void {
         $this->cleanupDb();
         parent::tearDown();
     }
 
-    public function testFetch() : void {
+    public function test_fetch(): void {
         $model = ModelWithRelationFactories::get(1);
 
         // Eager loaded factories are called on fetch

@@ -34,7 +34,7 @@ class ModelE extends Model
      * @param  int  $id  Model ID that was affected
      */
     #[AfterExternalUpdate]
-    public static function onExternalUpdate(int $id) : void {
+    public static function onExternalUpdate(int $id): void {
         self::$hookCallCount++;
         self::$lastHookId = $id;
     }

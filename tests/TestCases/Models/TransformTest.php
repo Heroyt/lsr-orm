@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace TestCases\Models;
@@ -15,8 +16,7 @@ class TransformTest extends TestCase
     /**
      * @return iterable<array{0:int,1:int}>
      */
-    public static function clampProvider(): iterable
-    {
+    public static function clampProvider(): iterable {
         yield [15, 10];
         yield [-5, 0];
         yield [5, 5];
@@ -25,8 +25,7 @@ class TransformTest extends TestCase
     /**
      * @return iterable<array{0:string,1:string}>
      */
-    public static function padProvider(): iterable
-    {
+    public static function padProvider(): iterable {
         yield ['', '00000000'];
         yield ['test', '0000test'];
         yield ['longerstring', 'longerstring'];
@@ -35,8 +34,7 @@ class TransformTest extends TestCase
     /**
      * @return iterable<array{0:string,1:string}>
      */
-    public static function truncateProvider(): iterable
-    {
+    public static function truncateProvider(): iterable {
         yield ['short', 'short'];
         yield ['this is a very long string', 'this is...'];
         yield ['verylongsinglewordstringthatgetstruncatedtoonly10', 'verylon...'];
@@ -45,28 +43,24 @@ class TransformTest extends TestCase
     /**
      * @return iterable<array{0:string,1:string}>
      */
-    public static function trimProvider(): iterable
-    {
+    public static function trimProvider(): iterable {
         yield ['   trimmed   ', 'trimmed'];
         yield ["\n\ttrimmed\n", 'trimmed'];
         yield ['no_trim', 'no_trim'];
     }
 
-    public function setUp(): void
-    {
+    public function setUp(): void {
         $this->initDb();
 
         parent::setUp();
     }
 
-    public function tearDown(): void
-    {
+    public function tearDown(): void {
         $this->cleanupDb();
         parent::tearDown();
     }
 
-    public function testTransformSave(): void
-    {
+    public function test_transform_save(): void {
         $model = new ModelWithTransforms();
         $model->lowercaseName = 'TESTNAME';
         $this->assertTrue($model->save());
@@ -84,8 +78,7 @@ class TransformTest extends TestCase
         $this->assertSame('testname', $model->lowercaseName);
     }
 
-    public function testTransformLoad(): void
-    {
+    public function test_transform_load(): void {
         $model = new ModelWithTransforms();
         $model->lowercaseLoadedName = 'TESTNAME';
         $this->assertTrue($model->save());
@@ -104,8 +97,7 @@ class TransformTest extends TestCase
     }
 
     #[DataProvider('clampProvider')]
-    public function testClampTransform(int $setValue, int $clampedValue): void
-    {
+    public function test_clamp_transform(int $setValue, int $clampedValue): void {
         $model = new ModelWithTransforms();
         $model->clampedValue = $setValue;
         $model->clampedValueOnSave = $setValue;
@@ -134,8 +126,7 @@ class TransformTest extends TestCase
     }
 
     #[DataProvider('padProvider')]
-    public function testPadTransform(string $setValue, string $paddedValue): void
-    {
+    public function test_pad_transform(string $setValue, string $paddedValue): void {
         $model = new ModelWithTransforms();
         $model->paddedValue = $setValue;
         $model->paddedValueOnSave = $setValue;
@@ -164,8 +155,7 @@ class TransformTest extends TestCase
     }
 
     #[DataProvider('truncateProvider')]
-    public function testTruncateTransform(string $setValue, string $truncatedValue): void
-    {
+    public function test_truncate_transform(string $setValue, string $truncatedValue): void {
         $model = new ModelWithTransforms();
         $model->truncatedValue = $setValue;
         $model->truncatedValueOnSave = $setValue;
@@ -194,8 +184,7 @@ class TransformTest extends TestCase
     }
 
     #[DataProvider('trimProvider')]
-    public function testTrimTransform(string $setValue, string $trimmedValue): void
-    {
+    public function test_trim_transform(string $setValue, string $trimmedValue): void {
         $model = new ModelWithTransforms();
         $model->trimmedValue = $setValue;
         $model->trimmedValueOnSave = $setValue;

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Lsr\Orm\Traits;
@@ -17,8 +18,8 @@ trait WithLogger
      *
      * @return Logger
      */
-    public function getLogger() : Logger {
-        if (!isset($this->logger)) {
+    public function getLogger(): Logger {
+        if ( ! isset($this->logger)) {
             $this->logger = ModelRepository::getLogger(static::class);
         }
         return $this->logger;

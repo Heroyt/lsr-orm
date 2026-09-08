@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Lsr\Orm\Attributes\Relations;
 
 use Error;
@@ -20,8 +22,8 @@ trait WithType
      * @return object{class: class-string<Model>|Model, nullable: bool} Class name
      */
     public function getType(ReflectionProperty $property): object {
-        if (!is_null($this->class)) {
-            if (!isset($this->nullable)) {
+        if (null !== $this->class) {
+            if ( ! isset($this->nullable)) {
                 $this->nullable = false;
                 if ($property->hasType()) {
                     $this->nullable = $property->getType()->allowsNull();
@@ -32,7 +34,7 @@ trait WithType
         if ($property->hasType()) {
             /** @var ReflectionType $type */
             $type = $property->getType();
-            if ($type instanceof ReflectionNamedType && !$type->isBuiltin()) {
+            if ($type instanceof ReflectionNamedType && ! $type->isBuiltin()) {
                 /** @var class-string<Model> $typeName */
                 $typeName = $type->getName();
                 $this->class = $typeName;
@@ -40,14 +42,14 @@ trait WithType
                 return (object) ['class' => $this->class, 'nullable' => $this->nullable];
             }
             throw new Error(
-                'Cannot create relation for a scalar type in Model ' . $this::class . ' and property ' . $property->getName()
+                'Cannot create relation for a scalar type in Model ' . $this::class . ' and property ' . $property->getName(),
             );
         }
 
         // TODO: Maybe add docblock parsing
         throw new Error(
             'Cannot create relation in Model ' . $this::class . ' and property ' . $property->getName(
-            ) . ' - no type definition found'
+            ) . ' - no type definition found',
         );
     }
 }

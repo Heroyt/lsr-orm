@@ -1,15 +1,15 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Lsr\Orm\Traits;
 
 trait WithArrayAccess
 {
-
     /**
      * @inheritdoc
      */
-    public function offsetGet($offset) : mixed {
+    public function offsetGet($offset): mixed {
         if ($this->offsetExists($offset)) {
             return $this->$offset;
         }
@@ -19,14 +19,14 @@ trait WithArrayAccess
     /**
      * @inheritdoc
      */
-    public function offsetExists($offset) : bool {
+    public function offsetExists($offset): bool {
         return property_exists($this, $offset);
     }
 
     /**
      * @inheritdoc
      */
-    public function offsetSet($offset, $value) : void {
+    public function offsetSet($offset, $value): void {
         if (isset($offset) && $this->offsetExists($offset)) {
             $this->$offset = $value;
         }
@@ -35,7 +35,7 @@ trait WithArrayAccess
     /**
      * @inheritdoc
      */
-    public function offsetUnset($offset) : void {
+    public function offsetUnset($offset): void {
         // Do nothing
     }
 

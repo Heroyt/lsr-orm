@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Mocks\Models;
 
-enum TestEnum : string
+enum TestEnum: string
 {
     case A = 'A';
     case B = 'B';

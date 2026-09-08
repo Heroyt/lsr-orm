@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Lsr\Orm\Attributes\Transforms;
@@ -17,7 +18,6 @@ use Lsr\Orm\Model;
 #[Attribute(Attribute::TARGET_PROPERTY)]
 readonly class Trim extends Transform
 {
-
     public const int RIGHT = 1;
     public const int LEFT = 2;
     public const int BOTH = 3;
@@ -27,21 +27,18 @@ readonly class Trim extends Transform
         public int    $mode = self::BOTH,
         public bool   $onSave = true,
         public bool   $onLoad = true,
-    )
-    {
+    ) {
         parent::__construct();
     }
 
-    public function transformSave(mixed $value, Model $model): mixed
-    {
-        if (!$this->onSave || !is_string($value)) {
+    public function transformSave(mixed $value, Model $model): mixed {
+        if ( ! $this->onSave || ! is_string($value)) {
             return $value;
         }
         return $this->trim($value);
     }
 
-    protected function trim(string $value): string
-    {
+    protected function trim(string $value): string {
         return match (true) {
             (bool)($this->mode & self::BOTH) => trim($value, $this->characters),
             (bool)($this->mode & self::LEFT) => ltrim($value, $this->characters),
@@ -50,9 +47,8 @@ readonly class Trim extends Transform
         };
     }
 
-    public function transformLoad(mixed $value, Model $model): mixed
-    {
-        if (!$this->onLoad || !is_string($value)) {
+    public function transformLoad(mixed $value, Model $model): mixed {
+        if ( ! $this->onLoad || ! is_string($value)) {
             return $value;
         }
         return $this->trim($value);

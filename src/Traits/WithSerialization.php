@@ -1,15 +1,18 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Lsr\Orm\Traits;
 
 use Lsr\Orm\Attributes;
 use Lsr\Orm\Attributes\JsonExclude;
+use ReflectionClass;
+use ReflectionNamedType;
 use ReflectionProperty;
+use RuntimeException;
 
 trait WithSerialization
 {
-
     /**
      * Specify data, which should be serialized to JSON.
      *
@@ -17,9 +20,9 @@ trait WithSerialization
      * @return array<string, mixed> data, which can be serialized by <b>json_encode</b>,
      * which is a value of any type other than a resource.
      */
-    public function jsonSerialize() : array {
+    public function jsonSerialize(): array {
         $data = [];
-        $reflection = new \ReflectionClass($this);
+        $reflection = new ReflectionClass($this);
 
         // Find all public properties of the class
         foreach ($reflection->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
@@ -27,15 +30,15 @@ trait WithSerialization
 
             // Skip properties that are not serializable
             if (
-                !$property->isInitialized($this)
-                || !empty($property->getAttributes(JsonExclude::class))
+                ! $property->isInitialized($this)
+                || ! empty($property->getAttributes(JsonExclude::class))
             ) {
                 continue;
             }
 
             // Handle serialization alias
             $aliasAttributes = $property->getAttributes(Attributes\SerializationAlias::class);
-            if (!empty($aliasAttributes)) {
+            if ( ! empty($aliasAttributes)) {
                 $alias = $aliasAttributes[0]->newInstance()->alias;
                 if ($alias !== '') {
                     $propertyName = $alias;
@@ -57,28 +60,28 @@ trait WithSerialization
             if (
                 count($params) !== 1
                 || ($type = $params[0]->getType()) === null
-                || !($type instanceof \ReflectionNamedType)
+                || ! ($type instanceof ReflectionNamedType)
                 || $type->getName() !== 'array'
             ) {
-                throw new \RuntimeException(
+                throw new RuntimeException(
                     sprintf(
                         'Method %s::%s must have exactly one array parameter.',
                         $reflection->getName(),
-                        $method->getName()
-                    )
+                        $method->getName(),
+                    ),
                 );
             }
             $returnType = $method->getReturnType();
             if (
-                !($returnType instanceof \ReflectionNamedType)
+                ! ($returnType instanceof ReflectionNamedType)
                 || $returnType->getName() !== 'array'
             ) {
-                throw new \RuntimeException(
+                throw new RuntimeException(
                     sprintf(
                         'Method %s::%s must return an array.',
                         $reflection->getName(),
-                        $method->getName()
-                    )
+                        $method->getName(),
+                    ),
                 );
             }
 

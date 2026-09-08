@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Lsr\Orm\Interfaces;
@@ -13,5 +14,4 @@ use Lsr\Orm\Model;
  */
 interface LoadedModel
 {
-
 }

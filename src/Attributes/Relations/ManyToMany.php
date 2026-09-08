@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Lsr\Orm\Attributes\Relations;
@@ -41,14 +42,14 @@ class ManyToMany extends ModelRelation
      *
      * @return Fluent
      */
-    public function getConnectionQuery(int $id, string | Model $targetClass, string | Model $class) : Fluent {
+    public function getConnectionQuery(int $id, string | Model $targetClass, string | Model $class): Fluent {
         return DB::select(
             $this->getThroughTableName($targetClass, $class),
             '%n as %n',
             $this->getForeignKey($targetClass, $class),
             $targetClass::getPrimaryKey(),
         )
-                 ->where('%n = %i', $this->getLocalKey($targetClass, $class), $id);
+            ->where('%n = %i', $this->getLocalKey($targetClass, $class), $id);
     }
 
     /**
@@ -56,7 +57,7 @@ class ManyToMany extends ModelRelation
      * @param  class-string<Model>|Model  $class
      * @return string
      */
-    public function getThroughTableName(string | Model $targetClass, string | Model $class) : string {
+    public function getThroughTableName(string | Model $targetClass, string | Model $class): string {
         if (empty($this->through)) {
             /** @var non-empty-string $table */
             $table = $class::TABLE;
@@ -69,7 +70,7 @@ class ManyToMany extends ModelRelation
                 [$table, $targetTable] = [$targetTable, $table];
             }
 
-            $this->through = '::'.$table.'_'.$targetTable;
+            $this->through = '::' . $table . '_' . $targetTable;
         }
         return $this->through;
     }
@@ -80,7 +81,7 @@ class ManyToMany extends ModelRelation
      *
      * @return string
      */
-    public function getForeignKey(string | Model $targetClass, string | Model $class) : string {
+    public function getForeignKey(string | Model $targetClass, string | Model $class): string {
         if (empty($this->foreignKey)) {
             $this->foreignKey = $targetClass::getPrimaryKey();
         }
@@ -93,7 +94,7 @@ class ManyToMany extends ModelRelation
      *
      * @return string
      */
-    public function getLocalKey(string | Model $targetClass, string | Model $class) : string {
+    public function getLocalKey(string | Model $targetClass, string | Model $class): string {
         if (empty($this->localKey)) {
             $this->localKey = $class::getPrimaryKey();
         }
@@ -106,7 +107,7 @@ class ManyToMany extends ModelRelation
      *
      * @return Fluent
      */
-    public function getInsertQuery(array $targetClasses, Model $class) : Fluent {
+    public function getInsertQuery(array $targetClasses, Model $class): Fluent {
         $data = [];
         foreach ($targetClasses as $targetClass) {
             $data[] = [
@@ -115,8 +116,8 @@ class ManyToMany extends ModelRelation
             ];
         }
         return DB::insertGet(
-               $this->through,
-            ...$data
+            $this->through,
+            ...$data,
         );
     }
 }

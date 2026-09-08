@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * @author Tomáš Vojík <xvojik00@stud.fit.vutbr.cz>, <vojik@wboy.cz>
  */
@@ -25,15 +27,15 @@ class ModelQuery
      * @param  class-string<T>  $className
      */
     public function __construct(
-        protected string $className
+        protected string $className,
     ) {
         $this->query = DB::select([$this->className::TABLE, 'a'], 'a.*')
-                         ->cacheTags(
-                             'models',
-                             $this->className::TABLE,
-                             $this->className::TABLE . '/query',
-                             ...$this->className::CACHE_TAGS
-                         );
+            ->cacheTags(
+                'models',
+                $this->className::TABLE,
+                $this->className::TABLE . '/query',
+                ...$this->className::CACHE_TAGS,
+            );
     }
 
     /**
@@ -176,7 +178,7 @@ class ModelQuery
         );
         try {
             $row = $this->query->fetch(cache: $cache);
-            if (!isset($row)) {
+            if ( ! isset($row)) {
                 $model = null;
             } else {
                 /** @var class-string<T&LoadedModel> $className */

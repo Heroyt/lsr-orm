@@ -100,7 +100,7 @@ final class ModelRepository
      * @return void
      */
     public static function setInstance(Model $model): void {
-        if (!$model->isLoaded()) {
+        if ( ! $model->isLoaded()) {
             return;
         }
         /** @var Model&LoadedModel $model */
@@ -110,7 +110,7 @@ final class ModelRepository
     }
 
     public static function removeInstance(Model $model): void {
-        if (!$model->isLoaded()) {
+        if ( ! $model->isLoaded()) {
             return;
         }
         if (isset(self::$instances[$model::class][$model->id])) {

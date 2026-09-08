@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Mocks\Models;
@@ -22,32 +23,32 @@ abstract class BaseModel extends Model
     public static int $afterDeleteCounter = 0;
 
     #[BeforeUpdate]
-    public function doSomethingBeforeUpdate() : void {
+    public function doSomethingBeforeUpdate(): void {
         self::$beforeUpdateCounter++;
     }
 
     #[AfterUpdate]
-    public function doSomethingAfterUpdate() : void {
+    public function doSomethingAfterUpdate(): void {
         self::$afterUpdateCounter++;
     }
 
     #[BeforeInsert]
-    public function doSomethingBeforeInsert() : void {
+    public function doSomethingBeforeInsert(): void {
         self::$beforeInsertCounter++;
     }
 
     #[AfterInsert]
-    public function doSomethingAfterInsert() : void {
+    public function doSomethingAfterInsert(): void {
         self::$afterInsertCounter++;
     }
 
     #[BeforeDelete]
-    public function doSomethingBeforeDelete() : void {
+    public function doSomethingBeforeDelete(): void {
         self::$beforeDeleteCounter++;
     }
 
     #[AfterDelete]
-    public function doSomethingAfterDelete() : void {
+    public function doSomethingAfterDelete(): void {
         self::$afterDeleteCounter++;
     }
 

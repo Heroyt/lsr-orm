@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Mocks;
@@ -11,5 +12,4 @@ use Mocks\Models\ModelC;
  */
 class CustomCollection extends ModelCollection
 {
-
 }

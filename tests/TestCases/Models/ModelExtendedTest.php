@@ -8,6 +8,7 @@ use Mocks\Models\ModelA;
 use Mocks\Models\ModelD;
 use Mocks\Models\ModelE;
 use PHPUnit\Framework\TestCase;
+use ReflectionObject;
 
 /**
  * Extended test suite for models covering additional features
@@ -16,13 +17,13 @@ class ModelExtendedTest extends TestCase
 {
     use DbHelpers;
 
-    public function setUp() : void {
+    public function setUp(): void {
         $this->initDb('dbExtendedModels');
 
         parent::setUp();
     }
 
-    public function tearDown() : void {
+    public function tearDown(): void {
         $this->cleanupDb();
         parent::tearDown();
     }
@@ -30,7 +31,7 @@ class ModelExtendedTest extends TestCase
     /**
      * Test many-to-many relation updates
      */
-    public function testManyToManyUpdate() : void {
+    public function test_many_to_many_update(): void {
         $this->refreshData();
 
         // Fetch the models
@@ -79,7 +80,7 @@ class ModelExtendedTest extends TestCase
     /**
      * Test tracking changed properties
      */
-    public function testChangedTrackingProperties() : void {
+    public function test_changed_tracking_properties(): void {
         $this->refreshData();
 
         // Get a model
@@ -116,12 +117,12 @@ class ModelExtendedTest extends TestCase
     /**
      * Test the protected updateManyToManyRelations method directly
      */
-    public function testUpdateManyToManyRelations() : void {
+    public function test_update_many_to_many_relations(): void {
         $this->refreshData();
 
         // Create a protected test method wrapper to access protected method
         $modelD = ModelD::get(1);
-        $reflection = new \ReflectionObject($modelD);
+        $reflection = new ReflectionObject($modelD);
         $method = $reflection->getMethod('updateManyToManyRelations');
         $method->setAccessible(true);
 

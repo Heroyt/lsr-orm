@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Lsr\Orm\Config;
 
 use Lsr\Orm\Attributes\Factory;
@@ -72,13 +74,13 @@ abstract class ModelConfig
 
     public ?Factory $factory {
         get {
-            if (!isset($this->factoryConfig)) {
+            if ( ! isset($this->factoryConfig)) {
                 return null;
             }
 
             $this->factory ??= new Factory(
                 $this->factoryConfig['factoryClass'],
-                $this->factoryConfig['defaultOptions']
+                $this->factoryConfig['defaultOptions'],
             );
             return $this->factory;
         }

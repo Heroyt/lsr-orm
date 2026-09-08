@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace TestCases\Models;
@@ -9,11 +10,10 @@ use PHPUnit\Framework\TestCase;
 
 class ModelConfigTest extends TestCase
 {
-
-    public static function setUpBeforeClass() : void {
+    public static function setUpBeforeClass(): void {
         // Clear mode configs
         ModelRepository::$modelConfig = [];
-        $files = glob(TMP_DIR.'models/*.php');
+        $files = glob(TMP_DIR . 'models/*.php');
         if ($files !== false) {
             foreach ($files as $file) {
                 unlink($file);
@@ -21,7 +21,7 @@ class ModelConfigTest extends TestCase
         }
     }
 
-    public function testConfigProperties() : void {
+    public function test_config_properties(): void {
         $config = ModelFromBase::getModelConfig();
 
         $this->assertSame('id_model_from_base', $config->primaryKey);
@@ -100,7 +100,7 @@ class ModelConfigTest extends TestCase
         $this->assertNull($config->properties['virtualNoDb']['relation']);
     }
 
-    public function testConfigHooks() : void {
+    public function test_config_hooks(): void {
         $config = ModelFromBase::getModelConfig();
 
         // Hooks

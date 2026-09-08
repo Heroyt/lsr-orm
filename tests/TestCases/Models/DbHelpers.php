@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace TestCases\Models;
@@ -430,23 +431,23 @@ trait DbHelpers
                     new DibiRowNormalizer(),
                     new BackedEnumNormalizer(),
                     new JsonSerializableNormalizer(),
-                    new ObjectNormalizer(propertyTypeExtractor: new ReflectionExtractor(),),
-                ]
-            )
+                    new ObjectNormalizer(propertyTypeExtractor: new ReflectionExtractor(), ),
+                ],
+            ),
         );
     }
 
-    protected function initDb(string $name = 'dbModels') : void {
+    protected function initDb(string $name = 'dbModels'): void {
         DB::init(
             new Connection(
                 $this->cache,
                 $this->mapper,
                 [
                     'driver'   => "sqlite",
-                    'database' => ROOT."tests/tmp/$name.db",
+                    'database' => ROOT . "tests/tmp/{$name}.db",
                     'prefix'   => "",
-                ]
-            )
+                ],
+            ),
         );
 
         // Create all tables
@@ -455,14 +456,14 @@ trait DbHelpers
                 DB::getConnection()->query($sql);
             } catch (Exception $e) {
                 // Only ignore "table already exists" errors
-                if (!str_contains($e->getMessage(), 'already exists')) {
+                if ( ! str_contains($e->getMessage(), 'already exists')) {
                     throw $e;
                 }
             }
         }
 
         // Clear model configs
-        $files = glob(TMP_DIR.'models/*');
+        $files = glob(TMP_DIR . 'models/*');
         assert($files !== false);
         foreach ($files as $file) {
             unlink($file);
@@ -471,7 +472,7 @@ trait DbHelpers
         $this->refreshData();
     }
 
-    protected function refreshData() : void {
+    protected function refreshData(): void {
         foreach (self::TABLES as $table => $sql) {
             DB::delete($table, ['1 = 1']);
         }
@@ -489,7 +490,7 @@ trait DbHelpers
         $this->cache->clean([$this->cache::All => true]);
     }
 
-    protected function cleanupDb() : void {
+    protected function cleanupDb(): void {
         DB::close();
     }
 

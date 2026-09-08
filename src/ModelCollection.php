@@ -27,7 +27,7 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      */
     private string $modelClass {
         get {
-            if (!isset($this->modelClass) || $this->modelClass === self::UNKNOWN_MODEL) {
+            if ( ! isset($this->modelClass) || $this->modelClass === self::UNKNOWN_MODEL) {
                 if (empty($this->models)) {
                     $this->modelClass = self::UNKNOWN_MODEL;
                     return $this->modelClass;
@@ -50,35 +50,35 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
         $this->models = $models instanceof self ? $models->models : $models;
     }
 
-    public function count() : int {
+    public function count(): int {
         return count($this->models);
     }
 
     /**
      * @return T|false
      */
-    public function current() : mixed {
+    public function current(): mixed {
         $key = array_keys($this->models)[$this->position] ?? null;
-        if ($key === null || !isset($this->models[$key])) {
+        if ($key === null || ! isset($this->models[$key])) {
             return false;
         }
         return $this->models[$key];
     }
 
-    public function next() : void {
+    public function next(): void {
         $this->position++;
     }
 
-    public function key() : ?int {
+    public function key(): ?int {
         return array_keys($this->models)[$this->position];
     }
 
-    public function valid() : bool {
+    public function valid(): bool {
         $key = array_keys($this->models)[$this->position] ?? null;
         return $key !== null && isset($this->models[$key]);
     }
 
-    public function rewind() : void {
+    public function rewind(): void {
         $this->position = 0;
     }
 
@@ -86,7 +86,7 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @param  int  $offset
      * @return bool
      */
-    public function offsetExists(mixed $offset) : bool {
+    public function offsetExists(mixed $offset): bool {
         return isset($this->models[$offset]);
     }
 
@@ -94,7 +94,7 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @param  int  $offset
      * @return T
      */
-    public function offsetGet(mixed $offset) : mixed {
+    public function offsetGet(mixed $offset): mixed {
         return $this->models[$offset];
     }
 
@@ -103,14 +103,14 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @param  T  $value
      * @return void
      */
-    public function offsetSet(mixed $offset, mixed $value) : void {
+    public function offsetSet(mixed $offset, mixed $value): void {
         if (
             $this->modelClass !== self::UNKNOWN_MODEL
-            && !($value instanceof $this->modelClass)
+            && ! ($value instanceof $this->modelClass)
         ) {
             throw new InvalidCollectionModelException(
                 sprintf('Cannot combine models types in a collection (collection class: "%s")', $this->modelClass),
-                InvalidCollectionModelException::INVALID_MODEL_TYPE_CODE
+                InvalidCollectionModelException::INVALID_MODEL_TYPE_CODE,
             );
         }
         $this->models[$offset] = $value;
@@ -120,11 +120,11 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @param  int  $offset
      * @return void
      */
-    public function offsetUnset(mixed $offset) : void {
+    public function offsetUnset(mixed $offset): void {
         unset($this->models[$offset]);
     }
 
-    public function jsonSerialize() : mixed {
+    public function jsonSerialize(): mixed {
         return $this->models;
     }
 
@@ -132,7 +132,7 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @param  callable(T $model):bool|null  $filter
      * @return T|null
      */
-    public function first(?callable $filter = null) : ?Model {
+    public function first(?callable $filter = null): ?Model {
         if ($filter === null) {
             return first($this->models);
         }
@@ -143,13 +143,13 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @param  callable(T $model):bool|null  $filter
      * @return T|null
      */
-    public function last(?callable $filter = null) : ?Model {
+    public function last(?callable $filter = null): ?Model {
         if ($filter === null) {
             return last($this->models);
         }
         return array_find(
             array_reverse($this->models),
-            $filter
+            $filter,
         );
     }
 
@@ -157,7 +157,7 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @param  callable(T $model):bool  $filter
      * @return ModelCollection<T>
      */
-    public function filter(callable $filter) : ModelCollection {
+    public function filter(callable $filter): ModelCollection {
         return new ModelCollection(array_filter($this->models, $filter));
     }
 
@@ -166,7 +166,7 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @param  callable(T $model):R  $function
      * @return R[]
      */
-    public function map(callable $function) : array {
+    public function map(callable $function): array {
         return array_map($function, $this->models);
     }
 
@@ -174,19 +174,19 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @param  T  $model
      * @return $this
      */
-    public function add(Model $model) : ModelCollection {
+    public function add(Model $model): ModelCollection {
         if (
             $this->modelClass !== self::UNKNOWN_MODEL
-            && !($model instanceof $this->modelClass)
+            && ! ($model instanceof $this->modelClass)
         ) {
             throw new InvalidCollectionModelException(
                 sprintf('Cannot combine models types in a collection (collection class: "%s")', $this->modelClass),
-                InvalidCollectionModelException::INVALID_MODEL_TYPE_CODE
+                InvalidCollectionModelException::INVALID_MODEL_TYPE_CODE,
             );
         }
 
-        if (!property_exists($model, $this->keyProperty)) {
-            throw new RuntimeException('Property "'.$this->keyProperty.'" does not exist on '.$model::class);
+        if ( ! property_exists($model, $this->keyProperty)) {
+            throw new RuntimeException('Property "' . $this->keyProperty . '" does not exist on ' . $model::class);
         }
 
         /** @var int|null $id */
@@ -194,7 +194,7 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
         if ($id === null) {
             throw new InvalidCollectionModelException(
                 'Cannot add an uninitialized model (without ID) to a collection.',
-                InvalidCollectionModelException::UNINITIALIZED_MODEL_CODE
+                InvalidCollectionModelException::UNINITIALIZED_MODEL_CODE,
             );
         }
         $this->models[$id] = $model;
@@ -207,27 +207,26 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @param  T  $model
      * @return $this
      */
-    public function push(Model $model) : ModelCollection {
+    public function push(Model $model): ModelCollection {
         if (
             $this->modelClass !== self::UNKNOWN_MODEL
-            && !($model instanceof $this->modelClass)
+            && ! ($model instanceof $this->modelClass)
         ) {
             throw new InvalidCollectionModelException(
                 sprintf('Cannot combine models types in a collection (collection class: "%s")', $this->modelClass),
-                InvalidCollectionModelException::INVALID_MODEL_TYPE_CODE
+                InvalidCollectionModelException::INVALID_MODEL_TYPE_CODE,
             );
         }
 
-        if (!property_exists($model, $this->keyProperty)) {
-            throw new RuntimeException('Property "'.$this->keyProperty.'" does not exist on '.$model::class);
+        if ( ! property_exists($model, $this->keyProperty)) {
+            throw new RuntimeException('Property "' . $this->keyProperty . '" does not exist on ' . $model::class);
         }
 
         /** @var int|null $id */
         $id = $model->{$this->keyProperty};
         if ($id === null) {
             $this->models[] = $model;
-        }
-        else {
+        } else {
             $this->models[$id] = $model;
         }
         return $this;
@@ -237,35 +236,34 @@ class ModelCollection implements Countable, Iterator, ArrayAccess, JsonSerializa
      * @param  T  $model
      * @return $this
      */
-    public function remove(Model $model) : ModelCollection {
-        if ($this->modelClass !== self::UNKNOWN_MODEL && !($model instanceof $this->modelClass)) {
+    public function remove(Model $model): ModelCollection {
+        if ($this->modelClass !== self::UNKNOWN_MODEL && ! ($model instanceof $this->modelClass)) {
             throw new InvalidCollectionModelException(
                 sprintf('Invalid model type for the collection (collection class: "%s")', $this->modelClass),
-                InvalidCollectionModelException::INVALID_MODEL_TYPE_CODE
+                InvalidCollectionModelException::INVALID_MODEL_TYPE_CODE,
             );
         }
 
-        if (!property_exists($model, $this->keyProperty)) {
-            throw new RuntimeException('Property "'.$this->keyProperty.'" does not exist on '.$model::class);
+        if ( ! property_exists($model, $this->keyProperty)) {
+            throw new RuntimeException('Property "' . $this->keyProperty . '" does not exist on ' . $model::class);
         }
 
         $key = $model->{$this->keyProperty};
-        if (!is_int($key) || !isset($this->models[$key])) {
+        if ( ! is_int($key) || ! isset($this->models[$key])) {
             return $this;
         }
         unset($this->models[$key]);
         return $this;
     }
 
-    public function contains(Model $model) : bool {
+    public function contains(Model $model): bool {
         return isset($this->models[$model->id]);
     }
 
     /**
      * @return array<int,T>
      */
-    public function toArray(): array
-    {
+    public function toArray(): array {
         return $this->models;
     }
 }

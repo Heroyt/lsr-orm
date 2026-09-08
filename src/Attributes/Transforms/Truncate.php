@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Lsr\Orm\Attributes\Transforms;
@@ -13,27 +14,23 @@ use Lsr\Orm\Model;
 #[Attribute(Attribute::TARGET_PROPERTY)]
 readonly class Truncate extends Transform
 {
-
     public function __construct(
         public int    $maxLength,
         public string $suffix = '',
         public bool   $onSave = true,
         public bool   $onLoad = true,
-    )
-    {
+    ) {
         parent::__construct();
     }
 
-    public function transformSave(mixed $value, Model $model): mixed
-    {
-        if (!$this->onSave || !is_string($value)) {
+    public function transformSave(mixed $value, Model $model): mixed {
+        if ( ! $this->onSave || ! is_string($value)) {
             return $value;
         }
         return $this->truncate($value);
     }
 
-    protected function truncate(string $value): string
-    {
+    protected function truncate(string $value): string {
         if (mb_strlen($value) <= $this->maxLength) {
             return $value;
         }
@@ -41,9 +38,8 @@ readonly class Truncate extends Transform
         return mb_rtrim(mb_substr($value, 0, $this->maxLength - $suffixLength)) . $this->suffix;
     }
 
-    public function transformLoad(mixed $value, Model $model): mixed
-    {
-        if (!$this->onLoad || !is_string($value)) {
+    public function transformLoad(mixed $value, Model $model): mixed {
+        if ( ! $this->onLoad || ! is_string($value)) {
             return $value;
         }
         return $this->truncate($value);

@@ -23,7 +23,7 @@ final class ModelLifecycleTest extends TestCase
         $this->cleanupDb();
     }
 
-    public function testQueryAndHydrationCaptureAreIndependent(): void {
+    public function test_query_and_hydration_capture_are_independent(): void {
         $queryHook = new RecordingModelLifecycleHook([ModelLifecycleEvent::QUERY]);
         ModelRepository::setLifecycleHook($queryHook);
 
@@ -34,7 +34,7 @@ final class ModelLifecycleTest extends TestCase
 
         self::assertSame(
             [ModelLifecycleEvent::COUNT, ModelLifecycleEvent::GET, ModelLifecycleEvent::FETCH],
-            array_map(static fn(ModelLifecycleEvent $event): string => $event->operation, $queryHook->events),
+            array_map(static fn (ModelLifecycleEvent $event): string => $event->operation, $queryHook->events),
         );
         self::assertSame(4, $queryHook->events[0]->resultCount);
         self::assertSame(4, $queryHook->events[1]->resultCount);
@@ -54,7 +54,7 @@ final class ModelLifecycleTest extends TestCase
         }
     }
 
-    public function testMutationCaptureReportsLifecycleOutcomes(): void {
+    public function test_mutation_capture_reports_lifecycle_outcomes(): void {
         $hook = new RecordingModelLifecycleHook([ModelLifecycleEvent::MUTATION]);
         ModelRepository::setLifecycleHook($hook);
         $model = new QueryModel();
@@ -68,7 +68,7 @@ final class ModelLifecycleTest extends TestCase
 
         self::assertSame(
             [ModelLifecycleEvent::INSERT, ModelLifecycleEvent::UPDATE, ModelLifecycleEvent::DELETE],
-            array_map(static fn(ModelLifecycleEvent $event): string => $event->operation, $hook->events),
+            array_map(static fn (ModelLifecycleEvent $event): string => $event->operation, $hook->events),
         );
         foreach ($hook->events as $event) {
             self::assertSame(ModelLifecycleEvent::SUCCESS, $event->outcome);
@@ -76,7 +76,7 @@ final class ModelLifecycleTest extends TestCase
         }
     }
 
-    public function testHookFailureDoesNotAffectModelOperations(): void {
+    public function test_hook_failure_does_not_affect_model_operations(): void {
         ModelRepository::setLifecycleHook(
             new RecordingModelLifecycleHook([ModelLifecycleEvent::QUERY], fail: true),
         );

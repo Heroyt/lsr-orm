@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TestCases\Models;
 
 use Mocks\Models\ModelCA;
@@ -22,7 +24,7 @@ class ModelComplexRelationTest extends TestCase
         parent::tearDown();
     }
 
-    public function testModelA(): void {
+    public function test_model_a(): void {
         $model = ModelCA::get(1);
 
         self::assertEquals('Model1', $model->name);
@@ -35,7 +37,7 @@ class ModelComplexRelationTest extends TestCase
         self::assertEquals('Group1', $model->parentC->name);
     }
 
-    public function testModelB(): void {
+    public function test_model_b(): void {
         $model = ModelCB::get(1);
 
         self::assertEquals('Parent1', $model->name);
@@ -69,7 +71,7 @@ class ModelComplexRelationTest extends TestCase
         self::assertContains(ModelCC::get(5), $model->childrenC);
     }
 
-    public function testModelC(): void {
+    public function test_model_c(): void {
         $model = ModelCC::get(1);
 
         self::assertEquals('Group1', $model->name);

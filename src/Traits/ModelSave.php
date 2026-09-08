@@ -1,9 +1,11 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Lsr\Orm\Traits;
 
 use BackedEnum;
+use DateTimeInterface;
 use Dibi\Drivers\PdoDriver;
 use Dibi\Exception;
 use Error;
@@ -16,11 +18,13 @@ use Lsr\Orm\Attributes\Relations\OneToOne;
 use Lsr\Orm\Attributes\Transform;
 use Lsr\Orm\Config\ModelConfig;
 use Lsr\Orm\Exceptions\ValidationException;
-use Lsr\Orm\Lifecycle\ModelLifecycleEvent;
 use Lsr\Orm\Interfaces\InsertExtendInterface;
+use Lsr\Orm\Lifecycle\ModelLifecycleEvent;
 use Lsr\Orm\Model;
 use Lsr\Orm\ModelCollection;
 use Lsr\Orm\ModelRepository;
+use PDO;
+use ReflectionAttribute;
 use ReflectionException;
 use ReflectionProperty;
 use Throwable;
@@ -35,25 +39,24 @@ trait ModelSave
      * @param array<string, mixed> $queryData
      * @return array<int, array{column: string, value: mixed, type: int}>
      */
-    private function normalizeNativeQueryData(array $queryData): array
-    {
+    private function normalizeNativeQueryData(array $queryData): array {
         $normalized = [];
         foreach ($queryData as $key => $value) {
             $parts = explode('%', $key, 2);
             $column = $parts[0];
             $modifier = $parts[1] ?? null;
 
-            if ($value instanceof \DateTimeInterface) {
+            if ($value instanceof DateTimeInterface) {
                 $value = $value->format('Y-m-d H:i:s');
             } elseif (is_bool($value)) {
                 $value = (int)$value;
             }
 
             $type = match (true) {
-                $modifier === 'bin' => \PDO::PARAM_LOB,
-                is_int($value) => \PDO::PARAM_INT,
-                $value === null => \PDO::PARAM_NULL,
-                default => \PDO::PARAM_STR,
+                $modifier === 'bin' => PDO::PARAM_LOB,
+                is_int($value) => PDO::PARAM_INT,
+                $value === null => PDO::PARAM_NULL,
+                default => PDO::PARAM_STR,
             };
 
             $normalized[] = [
@@ -68,33 +71,32 @@ trait ModelSave
     /**
      * @param array<string, mixed> $queryData
      */
-    private function tryNativePdoInsert(array $queryData): bool
-    {
+    private function tryNativePdoInsert(array $queryData): bool {
         $driver = DB::getConnection()->connection->getDriver();
-        if (!$driver instanceof PdoDriver) {
+        if ( ! $driver instanceof PdoDriver) {
             return false;
         }
 
         $pdo = $driver->getResource();
-        if (!$pdo instanceof \PDO) {
+        if ( ! $pdo instanceof PDO) {
             return false;
         }
 
         $normalized = $this->normalizeNativeQueryData($queryData);
-        $columns = array_map(static fn(array $item): string => $item['column'], $normalized);
+        $columns = array_map(static fn (array $item): string => $item['column'], $normalized);
         $quotedColumns = array_map(
-            static fn(string $column): string => '`' . str_replace('`', '``', $column) . '`',
-            $columns
+            static fn (string $column): string => '`' . str_replace('`', '``', $column) . '`',
+            $columns,
         );
         $placeholders = array_map(
-            static fn(string $column): string => ':' . $column,
-            $columns
+            static fn (string $column): string => ':' . $column,
+            $columns,
         );
         $sql = sprintf(
             'INSERT INTO `%s` (%s) VALUES (%s)',
             str_replace('`', '``', $this::TABLE),
             implode(', ', $quotedColumns),
-            implode(', ', $placeholders)
+            implode(', ', $placeholders),
         );
         $statement = $pdo->prepare($sql);
         if ($statement === false) {
@@ -103,7 +105,7 @@ trait ModelSave
         foreach ($normalized as $item) {
             $statement->bindValue(':' . $item['column'], $item['value'], $item['type']);
         }
-        if (!$statement->execute()) {
+        if ( ! $statement->execute()) {
             return false;
         }
         $this->id = (int)$pdo->lastInsertId() ?: null;
@@ -113,15 +115,14 @@ trait ModelSave
     /**
      * @param array<string, mixed> $queryData
      */
-    private function tryNativePdoUpdate(array $queryData): bool
-    {
+    private function tryNativePdoUpdate(array $queryData): bool {
         $driver = DB::getConnection()->connection->getDriver();
-        if (!$driver instanceof PdoDriver) {
+        if ( ! $driver instanceof PdoDriver) {
             return false;
         }
 
         $pdo = $driver->getResource();
-        if (!$pdo instanceof \PDO) {
+        if ( ! $pdo instanceof PDO) {
             return false;
         }
 
@@ -138,7 +139,7 @@ trait ModelSave
             'UPDATE `%s` SET %s WHERE `%s` = :_primary_id',
             str_replace('`', '``', $this::TABLE),
             implode(', ', $assignments),
-            str_replace('`', '``', $this::getPrimaryKey())
+            str_replace('`', '``', $this::getPrimaryKey()),
         );
         $statement = $pdo->prepare($sql);
         if ($statement === false) {
@@ -147,7 +148,7 @@ trait ModelSave
         foreach ($normalized as $item) {
             $statement->bindValue(':' . $item['column'], $item['value'], $item['type']);
         }
-        $statement->bindValue(':_primary_id', $this->id, \PDO::PARAM_INT);
+        $statement->bindValue(':_primary_id', $this->id, PDO::PARAM_INT);
         return $statement->execute();
     }
 
@@ -159,9 +160,8 @@ trait ModelSave
     private function resolveOneToManyRelationClass(
         string          $propertyName,
         string          $relationClass,
-        ModelCollection $model
-    ): string
-    {
+        ModelCollection $model,
+    ): string {
         if ($relationClass::TABLE !== Model::TABLE) {
             return $relationClass;
         }
@@ -192,7 +192,7 @@ trait ModelSave
      * @throws ValidationException
      * @phpstan-assert-if-true !null $this->id
      */
-    public function save() : bool {
+    public function save(): bool {
         $this->validate();
         DB::begin();
         if ($this->isLoaded() ? $this->update() : $this->insert()) {
@@ -234,10 +234,10 @@ trait ModelSave
     }
 
     private function performUpdate(): bool {
-        if (!$this->isLoaded()) {
+        if ( ! $this->isLoaded()) {
             return false;
         }
-        $this->getLogger()->info('Updating model - '.$this->id);
+        $this->getLogger()->info('Updating model - ' . $this->id);
         foreach ($this::getBeforeUpdate() as $method) {
             if (method_exists($this, $method)) {
                 $this->$method();
@@ -245,25 +245,25 @@ trait ModelSave
         }
         $queryData = $this->getQueryData();
 
-        if (!empty($queryData)) {
+        if ( ! empty($queryData)) {
             // Update only if there are any changes
             try {
-                if (!$this->tryNativePdoUpdate($queryData)) {
+                if ( ! $this->tryNativePdoUpdate($queryData)) {
                     DB::update($this::TABLE, $queryData, ['%n = %i', $this::getPrimaryKey(), $this->id]);
                 }
             } catch (Exception $e) {
-                $this->getLogger()->error('Error running update query: '.$e->getMessage());
-                $this->getLogger()->debug('Query: '.$e->getSql());
+                $this->getLogger()->error('Error running update query: ' . $e->getMessage());
+                $this->getLogger()->debug('Query: ' . $e->getSql());
                 $this->getLogger()->exception($e);
                 return false;
             }
         }
 
-        if (!$this->updateOneToManyRelations()) {
+        if ( ! $this->updateOneToManyRelations()) {
             return false;
         }
 
-        if (!$this->updateManyToManyRelations()) {
+        if ( ! $this->updateManyToManyRelations()) {
             return false;
         }
 
@@ -271,11 +271,9 @@ trait ModelSave
         foreach ($this->getChangedProperties() as $key => $value) {
             if ($value instanceof Model) {
                 $value = $value->id;
-            }
-            else if ($value instanceof ModelCollection) {
-                $value = $value->map(fn(Model $m) => $m->id);
-            }
-            else if ($value instanceof InsertExtendInterface) {
+            } elseif ($value instanceof ModelCollection) {
+                $value = $value->map(fn (Model $m) => $m->id);
+            } elseif ($value instanceof InsertExtendInterface) {
                 $data = [];
                 $value->addQueryData($data);
                 $value = $data;
@@ -296,14 +294,14 @@ trait ModelSave
      * @return array<non-empty-string, mixed> Property name-value pairs of changed properties
      * @throws ReflectionException
      */
-    public function getChangedProperties() : array {
+    public function getChangedProperties(): array {
         $changed = [];
         foreach ($this::getProperties() as $propertyName => $property) {
             if (
                 $property['noDb']
                 || ($property['isVirtual'] ?? false)
-                || (!isset($this->$propertyName) && $property['isPrimaryKey'])
-                || !$this->hasChanged($propertyName)
+                || ( ! isset($this->$propertyName) && $property['isPrimaryKey'])
+                || ! $this->hasChanged($propertyName)
             ) {
                 continue;
             }
@@ -318,15 +316,15 @@ trait ModelSave
      * @return array<string, mixed>
      * @throws ValidationException|ReflectionException
      */
-    public function getQueryData(bool $filterChanged = true) : array {
+    public function getQueryData(bool $filterChanged = true): array {
         $data = [];
 
         foreach ($this::getProperties() as $propertyName => $property) {
             if (
                 $property['noDb']
                 || ($property['isVirtual'] ?? false)
-                || (!isset($this->$propertyName) && $property['isPrimaryKey'])
-                || ($filterChanged && !$this->hasChanged($propertyName)) // Filter out unchanged properties
+                || ( ! isset($this->$propertyName) && $property['isPrimaryKey'])
+                || ($filterChanged && ! $this->hasChanged($propertyName)) // Filter out unchanged properties
             ) {
                 continue;
             }
@@ -339,7 +337,7 @@ trait ModelSave
                 // Do not include lazy-loaded fields that have not been set yet
                 $reflection = new ReflectionProperty($this, $propertyName);
                 try {
-                    if (!$reflection->isInitialized($this)) {
+                    if ( ! $reflection->isInitialized($this)) {
                         continue;
                     }
                 } catch (Error $e) {
@@ -372,7 +370,7 @@ trait ModelSave
                 // Custom transform after fetching from DB
                 if (array_key_exists('hasTransform', $property) && $property['hasTransform']) {
                     $propertyReflection = $this::getReflection()->getProperty($propertyName);
-                    $transformAttributes = $propertyReflection->getAttributes(Transform::class, \ReflectionAttribute::IS_INSTANCEOF);
+                    $transformAttributes = $propertyReflection->getAttributes(Transform::class, ReflectionAttribute::IS_INSTANCEOF);
                     foreach ($transformAttributes as $attribute) {
                         /** @var Transform $transformInstance */
                         $transformInstance = $attribute->newInstance();
@@ -387,9 +385,9 @@ trait ModelSave
             // Handle enum values
             if ($property['isEnum']) {
                 $value = $this->$propertyName ?? null;
-                if ($value === null && !$property['allowsNull']) {
+                if ($value === null && ! $property['allowsNull']) {
                     throw new ValidationException(
-                        'Cannot assign null to a non nullable enum property '.$this::class.'::$'.$propertyName
+                        'Cannot assign null to a non nullable enum property ' . $this::class . '::$' . $propertyName,
                     );
                 }
                 assert($value === null || $value instanceof BackedEnum);
@@ -410,18 +408,18 @@ trait ModelSave
     /**
      * @throws ReflectionException
      */
-    protected function updateOneToManyRelations(bool $filterChanged = true) : bool {
+    protected function updateOneToManyRelations(bool $filterChanged = true): bool {
         foreach ($this::getProperties() as $propertyName => $property) {
             if (
                 $property['relation'] === null
                 || $property['relation']['type'] !== OneToMany::class
-                || ($filterChanged && !$this->hasChanged($propertyName))
+                || ($filterChanged && ! $this->hasChanged($propertyName))
             ) {
                 continue;
             }
 
             $reflection = new ReflectionProperty($this, $propertyName);
-            if (!$reflection->isInitialized($this)) {
+            if ( ! $reflection->isInitialized($this)) {
                 continue;
             }
 
@@ -432,14 +430,14 @@ trait ModelSave
             $relationClass = $this->resolveOneToManyRelationClass(
                 $propertyName,
                 $property['relation']['class'],
-                $model
+                $model,
             );
 
             // Find the original models' ids
             /** @var int[] $originalIds */
             $originalIds = $this->originalValues[$propertyName] ?? [];
             /** @var int[] $currentIds */
-            $currentIds = $model->map(fn(Model $m) => $m->id);
+            $currentIds = $model->map(fn (Model $m) => $m->id);
 
             // TODO: Make sure that the related models are saved
             /** @var int[] $modelsToDelete */
@@ -448,7 +446,7 @@ trait ModelSave
             $modelsToInsert = array_filter(array_diff($currentIds, $originalIds));
             $relationPK = $relationClass::getPrimaryKey();
 
-            if (!empty($modelsToDelete)) {
+            if ( ! empty($modelsToDelete)) {
                 // Unset the foreign key in the relation table
                 try {
                     DB::update(
@@ -463,14 +461,14 @@ trait ModelSave
                         ],
                     );
                 } catch (Exception $e) {
-                    $this->getLogger()->error('Error updating one-to-many relation: '.$e->getMessage());
-                    $this->getLogger()->debug('Query: '.$e->getSql());
+                    $this->getLogger()->error('Error updating one-to-many relation: ' . $e->getMessage());
+                    $this->getLogger()->debug('Query: ' . $e->getSql());
                     $this->getLogger()->exception($e);
                     return false;
                 }
             }
 
-            if (!empty($modelsToInsert)) {
+            if ( ! empty($modelsToInsert)) {
                 // Set the foreign key in the relation table
                 try {
                     DB::update(
@@ -485,8 +483,8 @@ trait ModelSave
                         ],
                     );
                 } catch (Exception $e) {
-                    $this->getLogger()->error('Error updating one-to-many relation: '.$e->getMessage());
-                    $this->getLogger()->debug('Query: '.$e->getSql());
+                    $this->getLogger()->error('Error updating one-to-many relation: ' . $e->getMessage());
+                    $this->getLogger()->debug('Query: ' . $e->getSql());
                     $this->getLogger()->exception($e);
                     return false;
                 }
@@ -511,12 +509,12 @@ trait ModelSave
     /**
      * @throws ReflectionException
      */
-    protected function updateManyToManyRelations(bool $filterChanged = true) : bool {
+    protected function updateManyToManyRelations(bool $filterChanged = true): bool {
         foreach ($this::getProperties() as $propertyName => $property) {
             if (
                 $property['relation'] === null
                 || $property['relation']['type'] !== ManyToMany::class
-                || ($filterChanged && !$this->hasChanged($propertyName))
+                || ($filterChanged && ! $this->hasChanged($propertyName))
             ) {
                 continue;
             }
@@ -528,7 +526,7 @@ trait ModelSave
             $relationClass = $property['relation']['class'];
 
             $reflection = new ReflectionProperty($this, $propertyName);
-            if (!$reflection->isInitialized($this)) {
+            if ( ! $reflection->isInitialized($this)) {
                 continue;
             }
 
@@ -540,7 +538,7 @@ trait ModelSave
             $originalIds = $this->originalValues[$propertyName] ?? [];
 
             /** @var int[] $currentIds */
-            $currentIds = $model->map(fn(Model $m) => $m->id);
+            $currentIds = $model->map(fn (Model $m) => $m->id);
 
             // TODO: Make sure that the related models are saved
             /** @var int[] $modelsToDelete */
@@ -552,7 +550,7 @@ trait ModelSave
             $relationPK = $relationClass::getPrimaryKey();
             $table = $relation->getThroughTableName($relationClass, $this);
 
-            if (!empty($modelsToDelete)) {
+            if ( ! empty($modelsToDelete)) {
                 // Unset the foreign key in the relation table
                 try {
                     DB::delete(
@@ -566,14 +564,14 @@ trait ModelSave
                         ],
                     );
                 } catch (Exception $e) {
-                    $this->getLogger()->error('Error updating many-to-many relation: '.$e->getMessage());
-                    $this->getLogger()->debug('Query: '.$e->getSql());
+                    $this->getLogger()->error('Error updating many-to-many relation: ' . $e->getMessage());
+                    $this->getLogger()->debug('Query: ' . $e->getSql());
                     $this->getLogger()->exception($e);
                     return false;
                 }
             }
 
-            if (!empty($modelsToInsert)) {
+            if ( ! empty($modelsToInsert)) {
                 // Set the foreign key in the relation table
                 try {
                     foreach ($modelsToInsert as $id) {
@@ -582,12 +580,12 @@ trait ModelSave
                             [
                                 $thisPK     => $this->id,
                                 $relationPK => $id,
-                            ]
+                            ],
                         );
                     }
                 } catch (Exception $e) {
-                    $this->getLogger()->error('Error updating many-to-many relation: '.$e->getMessage());
-                    $this->getLogger()->debug('Query: '.$e->getSql());
+                    $this->getLogger()->error('Error updating many-to-many relation: ' . $e->getMessage());
+                    $this->getLogger()->debug('Query: ' . $e->getSql());
                     $this->getLogger()->exception($e);
                     return false;
                 }
@@ -638,10 +636,10 @@ trait ModelSave
     }
 
     private function performDelete(): bool {
-        if (!$this->isLoaded()) {
+        if ( ! $this->isLoaded()) {
             return false;
         }
-        $this->getLogger()->info('Delete model: '.$this::TABLE.' of ID: '.$this->id);
+        $this->getLogger()->info('Delete model: ' . $this::TABLE . ' of ID: ' . $this->id);
 
         foreach ($this::getBeforeDelete() as $method) {
             if (method_exists($this, $method)) {
@@ -712,13 +710,13 @@ trait ModelSave
         $queryData = $this->getQueryData(false);
 
         try {
-            if (!$this->tryNativePdoInsert($queryData)) {
+            if ( ! $this->tryNativePdoInsert($queryData)) {
                 DB::insert($this::TABLE, $queryData);
                 $this->id = DB::getInsertId();
             }
         } catch (Exception $e) {
-            $this->getLogger()->error('Error running insert query: '.$e->getMessage());
-            $this->getLogger()->debug('Query: '.$e->getSql());
+            $this->getLogger()->error('Error running insert query: ' . $e->getMessage());
+            $this->getLogger()->debug('Query: ' . $e->getSql());
             $this->getLogger()->exception($e);
             return false;
         }
@@ -728,11 +726,11 @@ trait ModelSave
         }
         ModelRepository::setInstance($this);
 
-        if (!$this->updateOneToManyRelations(false)) {
+        if ( ! $this->updateOneToManyRelations(false)) {
             return false;
         }
 
-        if (!$this->updateManyToManyRelations(false)) {
+        if ( ! $this->updateManyToManyRelations(false)) {
             return false;
         }
 

@@ -49,7 +49,7 @@ class ModelWithRelationFactories extends Model
     public ModelCollection $manyToManyEager;
 
 
-    public function findParent() : ?ModelWithRelationFactories {
+    public function findParent(): ?ModelWithRelationFactories {
         $model = new ModelWithRelationFactories();
         $model->id = 999;
         $model->name = 'parent';
@@ -60,7 +60,7 @@ class ModelWithRelationFactories extends Model
     /**
      * @return ModelCollection<ModelWithRelationFactories>
      */
-    public function findCollection() : ModelCollection {
+    public function findCollection(): ModelCollection {
         $model = new ModelWithRelationFactories();
         $model->id = 9999;
         $model->name = 'collection';

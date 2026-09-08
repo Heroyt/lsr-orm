@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace TestCases;
@@ -21,6 +22,7 @@ use Mocks\Models\ModelFInvalid2;
 use Mocks\Models\ModelG;
 use Nette\Caching\Storages\DevNullStorage;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
 use Symfony\Component\Serializer\Normalizer\ArrayDenormalizer;
 use Symfony\Component\Serializer\Normalizer\BackedEnumNormalizer;
@@ -43,23 +45,23 @@ class CustomModelCollectionTest extends TestCase
                     new DibiRowNormalizer(),
                     new BackedEnumNormalizer(),
                     new JsonSerializableNormalizer(),
-                    new ObjectNormalizer(propertyTypeExtractor: new ReflectionExtractor(),),
-                ]
-            )
+                    new ObjectNormalizer(propertyTypeExtractor: new ReflectionExtractor(), ),
+                ],
+            ),
         );
     }
 
-    public function setUp() : void {
+    public function setUp(): void {
         DB::init(
             new Connection(
                 $this->cache,
                 $this->mapper,
                 [
                     'driver'   => "sqlite",
-                    'database' => ROOT."tests/tmp/dbModels.db",
+                    'database' => ROOT . "tests/tmp/dbModels.db",
                     'prefix'   => "",
-                ]
-            )
+                ],
+            ),
         );
         try {
             DB::getConnection()->query(
@@ -68,7 +70,7 @@ class CustomModelCollectionTest extends TestCase
 			    model_f_id INTEGER PRIMARY KEY autoincrement NOT NULL , 
 			    name CHAR(60) NOT NULL
 			);
-		"
+		",
             );
         } catch (Exception) {
         }
@@ -80,7 +82,7 @@ class CustomModelCollectionTest extends TestCase
 			    id_2 INTEGER, 
 			    PRIMARY KEY(id_1, id_2)
 			);
-		"
+		",
             );
         } catch (Exception) {
         }
@@ -92,13 +94,13 @@ class CustomModelCollectionTest extends TestCase
 			    name CHAR(200) NOT NULL, 
 			    model_f_id INT NOT NULL
 			);
-		"
+		",
             );
         } catch (Exception) {
         }
         $this->refreshData();
 
-        $files = glob(TMP_DIR.'models/*');
+        $files = glob(TMP_DIR . 'models/*');
         assert($files !== false);
         foreach ($files as $file) {
             unlink($file);
@@ -107,7 +109,7 @@ class CustomModelCollectionTest extends TestCase
         parent::setUp();
     }
 
-    public function refreshData() : void {
+    public function refreshData(): void {
         DB::delete(ModelF::TABLE, ['1 = 1']);
         DB::delete(ModelG::TABLE, ['1 = 1']);
         DB::delete('modelsF_connect', ['1 = 1']);
@@ -117,14 +119,14 @@ class CustomModelCollectionTest extends TestCase
             [
                 'model_f_id' => 1,
                 'name'       => 'model1',
-            ]
+            ],
         );
         DB::insert(
             ModelF::TABLE,
             [
                 'model_f_id' => 2,
                 'name'       => 'model2',
-            ]
+            ],
         );
 
         DB::insert(
@@ -132,14 +134,14 @@ class CustomModelCollectionTest extends TestCase
             [
                 'id_1' => 1,
                 'id_2' => 2,
-            ]
+            ],
         );
         DB::insert(
             'modelsF_connect',
             [
                 'id_1' => 2,
                 'id_2' => 1,
-            ]
+            ],
         );
 
         DB::insert(
@@ -148,7 +150,7 @@ class CustomModelCollectionTest extends TestCase
                 'model_g_id' => 1,
                 'name'       => 'model1',
                 'model_f_id' => 1,
-            ]
+            ],
         );
         DB::insert(
             ModelG::TABLE,
@@ -156,7 +158,7 @@ class CustomModelCollectionTest extends TestCase
                 'model_g_id' => 2,
                 'name'       => 'model2',
                 'model_f_id' => 1,
-            ]
+            ],
         );
         DB::insert(
             ModelG::TABLE,
@@ -164,7 +166,7 @@ class CustomModelCollectionTest extends TestCase
                 'model_g_id' => 3,
                 'name'       => 'model3',
                 'model_f_id' => 1,
-            ]
+            ],
         );
         DB::insert(
             ModelG::TABLE,
@@ -172,7 +174,7 @@ class CustomModelCollectionTest extends TestCase
                 'model_g_id' => 4,
                 'name'       => 'model4',
                 'model_f_id' => 2,
-            ]
+            ],
         );
         DB::insert(
             ModelG::TABLE,
@@ -180,18 +182,18 @@ class CustomModelCollectionTest extends TestCase
                 'model_g_id' => 5,
                 'name'       => 'model5',
                 'model_f_id' => 2,
-            ]
+            ],
         );
 
         $this->cache->clean([Cache::All => true]);
     }
 
-    public function tearDown() : void {
+    public function tearDown(): void {
         DB::close();
         parent::tearDown();
     }
 
-    public function testInitCustomCollection() : void {
+    public function test_init_custom_collection(): void {
         $model = new ModelF();
 
         // Should be initialized
@@ -202,7 +204,7 @@ class CustomModelCollectionTest extends TestCase
         $this->assertInstanceOf(CustomCollection::class, $model->manyToMany);
     }
 
-    public function testCollectionFetch() : void {
+    public function test_collection_fetch(): void {
         $model = ModelF::get(1);
 
         // Should be initialized
@@ -218,8 +220,8 @@ class CustomModelCollectionTest extends TestCase
         $this->assertContains(ModelF::get(2), $model->manyToMany);
     }
 
-    public function testInvalidCollectionFetch() : void {
-        $this->expectException(\RuntimeException::class);
+    public function test_invalid_collection_fetch(): void {
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage(
             sprintf(
                 'Invalid property type %s for relation type %s on %s::$%s (must extend %s)',
@@ -228,13 +230,13 @@ class CustomModelCollectionTest extends TestCase
                 ModelFInvalid::class,
                 'models',
                 ModelCollection::class,
-            )
+            ),
         );
         $model = ModelFInvalid::get(1);
     }
 
-    public function testInvalidCollectionFetch2() : void {
-        $this->expectException(\RuntimeException::class);
+    public function test_invalid_collection_fetch2(): void {
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage(
             sprintf(
                 'Invalid property type %s for relation type %s on %s::$%s (must extend %s)',
@@ -243,7 +245,7 @@ class CustomModelCollectionTest extends TestCase
                 ModelFInvalid2::class,
                 'manyToMany',
                 ModelCollection::class,
-            )
+            ),
         );
         $model = ModelFInvalid2::get(1);
     }

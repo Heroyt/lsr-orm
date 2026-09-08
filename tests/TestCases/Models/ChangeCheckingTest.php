@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace TestCases\Models;
@@ -14,18 +15,18 @@ class ChangeCheckingTest extends TestCase
 {
     use DbHelpers;
 
-    public function setUp() : void {
+    public function setUp(): void {
         $this->initDb('dbChangeChecking');
 
         parent::setUp();
     }
 
-    public function tearDown() : void {
+    public function tearDown(): void {
         $this->cleanupDb();
         parent::tearDown();
     }
 
-    public function testGetChangedProperties() : void {
+    public function test_get_changed_properties(): void {
         $model = ModelA::get(1);
         self::assertEmpty($model->getChangedProperties());
 
@@ -44,7 +45,7 @@ class ChangeCheckingTest extends TestCase
         self::assertArrayHasKey('children', $model->getChangedProperties());
     }
 
-    public function testSimpleChange() : void {
+    public function test_simple_change(): void {
         $model = ModelA::get(1);
         self::assertFalse($model->hasChanged('name'));
         self::assertFalse($model->hasChanged('age'));
@@ -66,7 +67,7 @@ class ChangeCheckingTest extends TestCase
         self::assertFalse($model->hasChanged('children'));
     }
 
-    public function testInsertExtendChange() : void {
+    public function test_insert_extend_change(): void {
         $model = ModelC::get(1);
         self::assertFalse($model->hasChanged('value0'));
         self::assertFalse($model->hasChanged('data'));
@@ -82,7 +83,7 @@ class ChangeCheckingTest extends TestCase
         self::assertFalse($model->hasChanged('value0'));
     }
 
-    public function testOneToManyRelationChange() : void {
+    public function test_one_to_many_relation_change(): void {
         $model = ModelA::get(1);
         self::assertFalse($model->hasChanged('children'));
 
@@ -92,18 +93,18 @@ class ChangeCheckingTest extends TestCase
         $model->children->remove($child);
         self::assertTrue(
             $model->hasChanged('children'),
-            'Children relation should be marked as changed after removing a child'
+            'Children relation should be marked as changed after removing a child',
         );
 
         // Add the child back
         $model->children->add($child);
         self::assertFalse(
             $model->hasChanged('children'),
-            'Children relation should not be marked as changed after adding the same child back'
+            'Children relation should not be marked as changed after adding the same child back',
         );
     }
 
-    public function testManyToOneRelationChange() : void {
+    public function test_many_to_one_relation_change(): void {
         $model = ModelB::get(1);
         self::assertFalse($model->hasChanged('parent'));
 
@@ -113,14 +114,14 @@ class ChangeCheckingTest extends TestCase
         $model->parent = null;
         self::assertTrue(
             $model->hasChanged('parent'),
-            'Parent relation should be marked as changed after removing the parent'
+            'Parent relation should be marked as changed after removing the parent',
         );
 
         // Add parent back
         $model->parent = $parent;
         self::assertFalse(
             $model->hasChanged('parent'),
-            'Parent relation should not be marked as changed after adding the parent back'
+            'Parent relation should not be marked as changed after adding the parent back',
         );
 
         // Change to a different parent
@@ -129,11 +130,11 @@ class ChangeCheckingTest extends TestCase
         $model->parent = $newParent;
         self::assertTrue(
             $model->hasChanged('parent'),
-            'Parent relation should be marked as changed after changing to a different parent'
+            'Parent relation should be marked as changed after changing to a different parent',
         );
     }
 
-    public function testManyToManyRelationChange() : void {
+    public function test_many_to_many_relation_change(): void {
         $model = ModelD::get(2);
         self::assertFalse($model->hasChanged('models'));
 
@@ -143,26 +144,26 @@ class ChangeCheckingTest extends TestCase
         $model->models->remove($relation);
         self::assertTrue(
             $model->hasChanged('models'),
-            'Relation should be marked as changed after removing the models'
+            'Relation should be marked as changed after removing the models',
         );
 
         // Add relation back
         $model->models->add($relation);
         self::assertFalse(
             $model->hasChanged('models'),
-            'Relation should not be marked as changed after adding the same model back'
+            'Relation should not be marked as changed after adding the same model back',
         );
 
         // Add a new relation
         $newRelation = ModelE::query()
-                             ->where('model_e_id NOT IN %in', $model->models->map(static fn(ModelE $e) => $e->id))
-                             ->first();
+            ->where('model_e_id NOT IN %in', $model->models->map(static fn (ModelE $e) => $e->id))
+            ->first();
         self::assertNotNull($newRelation, 'New relation should exist');
         $model->models->add($newRelation);
         self::assertTrue($model->hasChanged('models'), 'Relation should be marked as changed after adding a new model');
     }
 
-    public function testChangeAfterSave() : void {
+    public function test_change_after_save(): void {
         $model = ModelA::get(1);
         self::assertFalse($model->hasChanged('name'));
 
@@ -175,7 +176,7 @@ class ChangeCheckingTest extends TestCase
         self::assertFalse($model->hasChanged('name'), 'Name should not be marked as changed after save');
     }
 
-    public function testInsertExtendChangeAfterSave() : void {
+    public function test_insert_extend_change_after_save(): void {
         $model = ModelC::get(1);
         self::assertFalse($model->hasChanged('value0'));
         self::assertFalse($model->hasChanged('data'));
@@ -189,7 +190,7 @@ class ChangeCheckingTest extends TestCase
         self::assertFalse($model->hasChanged('data'), 'Data should not be marked as changed after save');
     }
 
-    public function testOneToManyRelationChangeAfterSave() : void {
+    public function test_one_to_many_relation_change_after_save(): void {
         $model = ModelA::get(1);
         self::assertFalse($model->hasChanged('children'));
 
@@ -199,16 +200,16 @@ class ChangeCheckingTest extends TestCase
         $model->children->remove($child);
         self::assertTrue(
             $model->hasChanged('children'),
-            'Children relation should be marked as changed after removing a child'
+            'Children relation should be marked as changed after removing a child',
         );
         self::assertTrue($model->save(), 'Save failed');
         self::assertFalse(
             $model->hasChanged('children'),
-            'Children relation should not be marked as changed after save'
+            'Children relation should not be marked as changed after save',
         );
     }
 
-    public function testManyToOneRelationChangeAfterSave() : void {
+    public function test_many_to_one_relation_change_after_save(): void {
         $model = ModelB::get(1);
         self::assertFalse($model->hasChanged('parent'));
 
@@ -226,13 +227,13 @@ class ChangeCheckingTest extends TestCase
         $model->parent = $newParent;
         self::assertTrue(
             $model->hasChanged('parent'),
-            'Parent relation should be marked as changed after changing to a different parent'
+            'Parent relation should be marked as changed after changing to a different parent',
         );
         self::assertTrue($model->save(), 'Save failed');
         self::assertFalse($model->hasChanged('parent'), 'Parent relation should not be marked as changed after save');
     }
 
-    public function testManyToManyRelationChangeAfterSave() : void {
+    public function test_many_to_many_relation_change_after_save(): void {
         $model = ModelD::get(2);
         self::assertFalse($model->hasChanged('models'));
 
@@ -242,15 +243,15 @@ class ChangeCheckingTest extends TestCase
         $model->models->remove($relation);
         self::assertTrue(
             $model->hasChanged('models'),
-            'Relation should be marked as changed after removing the models'
+            'Relation should be marked as changed after removing the models',
         );
         self::assertTrue($model->save(), 'Save failed');
         self::assertFalse($model->hasChanged('models'), 'Relation should not be marked as changed after save');
 
         // Add a new relation
         $newRelation = ModelE::query()
-                             ->where('model_e_id NOT IN %in', $model->models->map(static fn(ModelE $e) => $e->id))
-                             ->first();
+            ->where('model_e_id NOT IN %in', $model->models->map(static fn (ModelE $e) => $e->id))
+            ->first();
         self::assertNotNull($newRelation, 'New relation should exist');
         $model->models->add($newRelation);
         self::assertTrue($model->hasChanged('models'), 'Relation should be marked as changed after adding a new model');

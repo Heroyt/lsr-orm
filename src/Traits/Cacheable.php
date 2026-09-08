@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Lsr\Orm\Traits;
@@ -17,9 +18,9 @@ trait Cacheable
     /**
      * @return non-empty-string[]
      */
-    protected function getCacheTags() : array {
+    protected function getCacheTags(): array {
         return array_merge(
-            ['models', $this::TABLE, $this::TABLE.'/'.$this->id],
+            ['models', $this::TABLE, $this::TABLE . '/' . $this->id],
             $this::CACHE_TAGS,
             $this->cacheTags,
         );

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace TestCases;
 
 use Faker\Factory;
+use Generator;
 use Lsr\Orm\Exceptions\InvalidCollectionModelException;
 use Lsr\Orm\Model;
 use Lsr\Orm\ModelCollection;
@@ -16,7 +17,7 @@ use PHPUnit\Framework\TestCase;
 
 class ModelCollectionTest extends TestCase
 {
-    public static function getTestCollections(): \Generator {
+    public static function getTestCollections(): Generator {
         $faker = Factory::create();
 
         $data = [];
@@ -50,7 +51,7 @@ class ModelCollectionTest extends TestCase
         $model->name = $faker->name();
         $model->age = $faker->numberBetween(1, 99);
         $data = [
-          50 => $model,
+            50 => $model,
         ];
         $collection = new ModelCollection($data);
         yield '1 model' => [
@@ -67,7 +68,7 @@ class ModelCollectionTest extends TestCase
         ];
     }
 
-    public static function getAddModel(): \Generator {
+    public static function getAddModel(): Generator {
         $model = new ModelA();
         $model->id = 99;
         foreach (self::getTestCollections() as $key => ['collection' => $collection, 'expectedCount' => $expectedCount, 'data' => $data]) {
@@ -75,12 +76,12 @@ class ModelCollectionTest extends TestCase
                 'collection' => $collection,
                 'expectedCount' => $expectedCount,
                 'model' => $model,
-                'id' => $model->id
+                'id' => $model->id,
             ];
         }
     }
 
-    public static function getModelRemove(): \Generator {
+    public static function getModelRemove(): Generator {
         $data = [];
         for ($i = 1; $i < 5; $i++) {
             $model = new ModelA();
@@ -139,7 +140,7 @@ class ModelCollectionTest extends TestCase
     }
 
     #[DataProvider('getTestCollections')]
-    public function testIterator(ModelCollection $collection, int $expectedCount, array $data): void {
+    public function test_iterator(ModelCollection $collection, int $expectedCount, array $data): void {
         $this->assertCount($expectedCount, $collection);
         $count = 0;
         foreach ($collection as $id => $model) {
@@ -150,7 +151,7 @@ class ModelCollectionTest extends TestCase
     }
 
     #[DataProvider('getTestCollections')]
-    public function testArrayAccess(ModelCollection $collection, int $expectedCount, array $data): void {
+    public function test_array_access(ModelCollection $collection, int $expectedCount, array $data): void {
         $this->assertCount($expectedCount, $collection);
 
         // Test get
@@ -172,13 +173,13 @@ class ModelCollectionTest extends TestCase
         $this->assertCount($expectedCount, $collection);
     }
 
-    public function testInvalidSet(): void {
+    public function test_invalid_set(): void {
         $collection = new ModelCollection(
             [
                 new ModelA(),
                 new ModelA(),
                 new ModelA(),
-            ]
+            ],
         );
 
         $this->expectException(InvalidCollectionModelException::class);
@@ -187,7 +188,7 @@ class ModelCollectionTest extends TestCase
     }
 
     #[DataProvider('getAddModel')]
-    public function testAdd(ModelCollection $collection, int $expectedCount, Model $model, int $id): void {
+    public function test_add(ModelCollection $collection, int $expectedCount, Model $model, int $id): void {
         $this->assertCount($expectedCount, $collection);
 
         $collection->add($model);
@@ -195,13 +196,13 @@ class ModelCollectionTest extends TestCase
         $this->assertEquals($model, $collection[$id]);
     }
 
-    public function testInvalidModelAdd(): void {
+    public function test_invalid_model_add(): void {
         $collection = new ModelCollection(
             [
                 new ModelA(),
                 new ModelA(),
                 new ModelA(),
-            ]
+            ],
         );
 
         $this->expectException(InvalidCollectionModelException::class);
@@ -210,13 +211,13 @@ class ModelCollectionTest extends TestCase
         $collection->add(new ModelB());
     }
 
-    public function testMissingIdAdd(): void {
+    public function test_missing_id_add(): void {
         $collection = new ModelCollection(
             [
                 new ModelA(),
                 new ModelA(),
                 new ModelA(),
-            ]
+            ],
         );
 
         $this->expectException(InvalidCollectionModelException::class);
@@ -226,7 +227,7 @@ class ModelCollectionTest extends TestCase
     }
 
     #[DataProvider('getModelRemove')]
-    public function testRemove(ModelCollection $collection, int $expectedCount, int $expectedCountAfterDelete, Model $model): void {
+    public function test_remove(ModelCollection $collection, int $expectedCount, int $expectedCountAfterDelete, Model $model): void {
         $this->assertCount($expectedCount, $collection);
         $collection->remove($model);
         $this->assertCount($expectedCountAfterDelete, $collection);
@@ -235,13 +236,13 @@ class ModelCollectionTest extends TestCase
         }
     }
 
-    public function testInvalidModelRemove(): void {
+    public function test_invalid_model_remove(): void {
         $collection = new ModelCollection(
             [
                 new ModelA(),
                 new ModelA(),
                 new ModelA(),
-            ]
+            ],
         );
 
         $this->expectException(InvalidCollectionModelException::class);
@@ -251,7 +252,7 @@ class ModelCollectionTest extends TestCase
     }
 
     #[DataProvider('getTestCollections')]
-    public function testFirst(ModelCollection $collection, int $expectedCount, array $data): void {
+    public function test_first(ModelCollection $collection, int $expectedCount, array $data): void {
         $this->assertCount($expectedCount, $collection);
 
         $model = $collection->first();
@@ -263,7 +264,7 @@ class ModelCollectionTest extends TestCase
         }
 
         // Test with filter
-        $model = $collection->first(static fn(ModelA $model) => $model->id > 10);
+        $model = $collection->first(static fn (ModelA $model) => $model->id > 10);
 
         if ($expectedCount === 0) {
             $this->assertNull($model);
@@ -273,7 +274,7 @@ class ModelCollectionTest extends TestCase
     }
 
     #[DataProvider('getTestCollections')]
-    public function testLast(ModelCollection $collection, int $expectedCount, array $data): void {
+    public function test_last(ModelCollection $collection, int $expectedCount, array $data): void {
         $this->assertCount($expectedCount, $collection);
 
         $model = $collection->last();
@@ -285,7 +286,7 @@ class ModelCollectionTest extends TestCase
         }
 
         // Test with filter
-        $model = $collection->last(static fn(ModelA $model) => $model->id > 10);
+        $model = $collection->last(static fn (ModelA $model) => $model->id > 10);
 
         if ($expectedCount === 0) {
             $this->assertNull($model);
@@ -295,9 +296,9 @@ class ModelCollectionTest extends TestCase
     }
 
     #[DataProvider('getTestCollections')]
-    public function testFilter(ModelCollection $collection, int $expectedCount, array $data): void {
+    public function test_filter(ModelCollection $collection, int $expectedCount, array $data): void {
         $this->assertCount($expectedCount, $collection);
-        $filterFunc = static fn(ModelA $model) => $model->id > 10;
+        $filterFunc = static fn (ModelA $model) => $model->id > 10;
 
         $filteredData = array_filter($data, $filterFunc);
         $filteredCollection = $collection->filter($filterFunc);
@@ -309,9 +310,9 @@ class ModelCollectionTest extends TestCase
     }
 
     #[DataProvider('getTestCollections')]
-    public function testMap(ModelCollection $collection, int $expectedCount, array $data): void {
+    public function test_map(ModelCollection $collection, int $expectedCount, array $data): void {
         $this->assertCount($expectedCount, $collection);
-        $mapFunc = static fn(ModelA $model) => $model->id;
+        $mapFunc = static fn (ModelA $model) => $model->id;
 
         $mapData = $collection->map($mapFunc);
         $this->assertCount($expectedCount, $mapData);

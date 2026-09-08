@@ -22,7 +22,7 @@ final class OrmExtension extends CompilerExtension
     }
 
     public function loadConfiguration(): void {
-        if (!$this->config->commands || !class_exists(Command::class)) {
+        if ( ! $this->config->commands || ! class_exists(Command::class)) {
             return;
         }
 

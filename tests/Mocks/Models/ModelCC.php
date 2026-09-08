@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Mocks\Models;
 
+use Lsr\Orm\Attributes\PrimaryKey;
 use Lsr\Orm\Attributes\Relations\ManyToOne;
 use Lsr\Orm\Attributes\Relations\OneToMany;
-use Lsr\Orm\Attributes\PrimaryKey;
 use Lsr\Orm\Model;
 use Lsr\Orm\ModelCollection;
 

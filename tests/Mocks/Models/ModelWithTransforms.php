@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Mocks\Models;
@@ -11,10 +12,11 @@ use Lsr\Orm\Attributes\Transforms\Trim;
 use Lsr\Orm\Attributes\Transforms\Truncate;
 use Lsr\Orm\Model;
 
+use const STR_PAD_LEFT;
+
 #[PrimaryKey('id_model')]
 class ModelWithTransforms extends Model
 {
-
     public const string TABLE = 'model_with_transforms';
 
     #[Transform(save: 'transformName')]
@@ -32,13 +34,13 @@ class ModelWithTransforms extends Model
     #[Clamp(min: 0, max: 10, onSave: false)]
     public int $clampedValueOnLoad = 0;
 
-    #[Pad(8, '0', \STR_PAD_LEFT)]
+    #[Pad(8, '0', STR_PAD_LEFT)]
     public string $paddedValue = '00000000';
 
-    #[Pad(8, '0', \STR_PAD_LEFT, onLoad: false)]
+    #[Pad(8, '0', STR_PAD_LEFT, onLoad: false)]
     public string $paddedValueOnSave = '00000000';
 
-    #[Pad(8, '0', \STR_PAD_LEFT, onSave: false)]
+    #[Pad(8, '0', STR_PAD_LEFT, onSave: false)]
     public string $paddedValueOnLoad = '00000000';
 
     #[Truncate(10, '...')]
@@ -59,8 +61,7 @@ class ModelWithTransforms extends Model
     #[Trim(onSave: false)]
     public string $trimmedValueOnLoad = '';
 
-    public function transformName(string $name): string
-    {
+    public function transformName(string $name): string {
         return strtolower($name);
     }
 

@@ -15,13 +15,13 @@ class AfterExternalUpdateTest extends TestCase
 {
     use DbHelpers;
 
-    public function setUp() : void {
+    public function setUp(): void {
         $this->initDb('dbExternalUpdate');
 
         parent::setUp();
     }
 
-    public function tearDown() : void {
+    public function tearDown(): void {
         $this->cleanupDb();
         parent::tearDown();
     }
@@ -29,7 +29,7 @@ class AfterExternalUpdateTest extends TestCase
     /**
      * Test the AfterExternalUpdate hook functionality using the proper attribute implementation
      */
-    public function testAfterExternalUpdate() : void {
+    public function test_after_external_update(): void {
         $this->refreshData();
 
         // Reset hook tracking variables

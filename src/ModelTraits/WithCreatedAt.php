@@ -14,7 +14,7 @@ trait WithCreatedAt
 
     #[BeforeInsert]
     protected function updateCreatedAt(): void {
-        if (!isset($this->createdAt)) {
+        if ( ! isset($this->createdAt)) {
             $this->createdAt = new DateTimeImmutable();
         }
     }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Lsr\Orm\Config;
 
 use BackedEnum;
@@ -49,16 +51,16 @@ trait ModelConfigProvider
      * @todo: Support mixed primary keys
      *
      */
-    public static function getPrimaryKey() : string {
+    public static function getPrimaryKey(): string {
         // Prevent infinite loop due to cyclic relations
-        if (!static::canUseConfig()) {
+        if ( ! static::canUseConfig()) {
             return static::findPrimaryKey();
         }
         return static::getModelConfig()->primaryKey;
     }
 
-    protected static function canUseConfig() : bool {
-        if (isset(ModelRepository::$modelConfig[static::class]) || !isset(ModelRepository::$generatingConfig)) {
+    protected static function canUseConfig(): bool {
+        if (isset(ModelRepository::$modelConfig[static::class]) || ! isset(ModelRepository::$generatingConfig)) {
             return true;
         }
         if (file_exists(static::getCacheFileName())) {
@@ -72,8 +74,8 @@ trait ModelConfigProvider
      *
      * @return string Absolute path to the generated PHP file
      */
-    protected static function getCacheFileName() : string {
-        ModelRepository::$cacheFileName[static::class] ??= TMP_DIR.'models/'.static::getCacheClassName().'.php';
+    protected static function getCacheFileName(): string {
+        ModelRepository::$cacheFileName[static::class] ??= TMP_DIR . 'models/' . static::getCacheClassName() . '.php';
         return ModelRepository::$cacheFileName[static::class];
     }
 
@@ -82,8 +84,8 @@ trait ModelConfigProvider
      *
      * @return string
      */
-    public static function getCacheClassName() : string {
-        ModelRepository::$cacheClassName[static::class] ??= str_replace('\\', '_', static::class).'_Config';
+    public static function getCacheClassName(): string {
+        ModelRepository::$cacheClassName[static::class] ??= str_replace('\\', '_', static::class) . '_Config';
         return ModelRepository::$cacheClassName[static::class];
     }
 
@@ -92,14 +94,14 @@ trait ModelConfigProvider
      *
      * @return string
      */
-    public static function findPrimaryKey() : string {
-        if (!empty(ModelRepository::$primaryKeys[static::class])) {
+    public static function findPrimaryKey(): string {
+        if ( ! empty(ModelRepository::$primaryKeys[static::class])) {
             return ModelRepository::$primaryKeys[static::class];
         }
         $reflection = new ReflectionClass(static::class);
 
         $attributes = $reflection->getAttributes(PrimaryKey::class);
-        if (!empty($attributes)) {
+        if ( ! empty($attributes)) {
             /** @var ReflectionAttribute<ModelRelation> $attribute */
             $attribute = first($attributes);
             /** @var PrimaryKey $attr */
@@ -114,21 +116,21 @@ trait ModelConfigProvider
 
         $snakeCase = Strings::toSnakeCase($reflection->getShortName());
         if (
-            property_exists(static::class, 'id_'.$snakeCase) || property_exists(
+            property_exists(static::class, 'id_' . $snakeCase) || property_exists(
                 static::class,
-                'id'.$pascal
+                'id' . $pascal,
             )
         ) {
-            ModelRepository::$primaryKeys[static::class] = 'id_'.$snakeCase;
+            ModelRepository::$primaryKeys[static::class] = 'id_' . $snakeCase;
             return ModelRepository::$primaryKeys[static::class];
         }
         if (
-            property_exists(static::class, $snakeCase.'_id') || property_exists(
+            property_exists(static::class, $snakeCase . '_id') || property_exists(
                 static::class,
-                $camel.'Id'
+                $camel . 'Id',
             )
         ) {
-            ModelRepository::$primaryKeys[static::class] = $snakeCase.'_id';
+            ModelRepository::$primaryKeys[static::class] = $snakeCase . '_id';
             return ModelRepository::$primaryKeys[static::class];
         }
 
@@ -141,21 +143,20 @@ trait ModelConfigProvider
      *
      * @return ModelConfig
      */
-    public static function getModelConfig() : ModelConfig {
+    public static function getModelConfig(): ModelConfig {
         if (isset(ModelRepository::$modelConfig[static::class])) {
             return ModelRepository::$modelConfig[static::class];
         }
         // Check cache
-        if (!file_exists(static::getCacheFileName())) {
+        if ( ! file_exists(static::getCacheFileName())) {
             static::createConfigModel();
         }
 
         if (class_exists(static::getCacheClassName())) {
             /** @var class-string<ModelConfig> $className */
             $className = static::getCacheClassName();
-            ModelRepository::$modelConfig[static::class] = new $className;
-        }
-        else {
+            ModelRepository::$modelConfig[static::class] = new $className();
+        } else {
             /** @phpstan-ignore assign.propertyType */
             ModelRepository::$modelConfig[static::class] = require static::getCacheFileName();
         }
@@ -171,11 +172,11 @@ trait ModelConfigProvider
      *
      * @return void
      */
-    protected static function createConfigModel() : void {
+    protected static function createConfigModel(): void {
         ModelRepository::$generatingConfig = static::class;
         $file = new PhpFile();
-        $file->addComment('This is an autogenerated file containing model configuration of '.static::class)
-             ->setStrictTypes();
+        $file->addComment('This is an autogenerated file containing model configuration of ' . static::class)
+            ->setStrictTypes();
 
         $class = $file->addClass(static::getCacheClassName());
         $class->setExtends(ModelConfig::class)->setFinal();
@@ -199,22 +200,22 @@ trait ModelConfigProvider
             isset($factory) ? [
                 'factoryClass'   => $factory->factoryClass,
                 'defaultOptions' => $factory->defaultOptions,
-            ] : null
+            ] : null,
         )->setType('array')->setNullable();
 
         ModelRepository::$generatingConfig = null;
 
         // Maybe create the cache directory
         $helper = FsHelper::getInstance();
-        $helper->createDirRecursive($helper->extractPath(TMP_DIR.'models'));
+        $helper->createDirRecursive($helper->extractPath(TMP_DIR . 'models'));
 
         if (
             file_put_contents(
                 static::getCacheFileName(),
-                new PsrPrinter()->printFile($file)."\nreturn new ".$class->getName().';'
+                new PsrPrinter()->printFile($file) . "\nreturn new " . $class->getName() . ';',
             ) === false
         ) {
-            throw new RuntimeException('Cannot save file: '.static::getCacheFileName());
+            throw new RuntimeException('Cannot save file: ' . static::getCacheFileName());
         }
     }
 
@@ -225,7 +226,7 @@ trait ModelConfigProvider
      *
      * @phpstan-ignore return.type
      */
-    protected static function findProperties() : array {
+    protected static function findProperties(): array {
         $properties = [];
         foreach (static::getPropertyReflections(ReflectionProperty::IS_PUBLIC) as $property) {
             if ($property->isStatic()) {
@@ -240,12 +241,12 @@ trait ModelConfigProvider
                 'isExtend'     => false,
                 'isEnum'       => false,
                 'isDateTime'   => false,
-                'instantiate'  => !empty($property->getAttributes(Instantiate::class)),
-                'noDb'         => !empty($property->getAttributes(NoDB::class)),
+                'instantiate'  => ! empty($property->getAttributes(Instantiate::class)),
+                'noDb'         => ! empty($property->getAttributes(NoDB::class)),
                 'type'         => null,
                 'relation'     => null,
                 'isVirtual'    => $property->isVirtual(),
-                'hasTransform' => !empty($property->getAttributes(Transform::class, ReflectionAttribute::IS_INSTANCEOF)),
+                'hasTransform' => ! empty($property->getAttributes(Transform::class, ReflectionAttribute::IS_INSTANCEOF)),
             ];
             if ($property->hasType()) {
                 // Check enum and date values
@@ -256,27 +257,26 @@ trait ModelConfigProvider
                     if ($type->isBuiltin()) {
                         $properties[$propertyName]['isBuiltin'] = true;
                         $properties[$propertyName]['type'] = $type->getName();
-                    }
-                    else {
+                    } else {
                         $implements = class_implements($type->getName());
-                        if (!is_array($implements)) {
+                        if ( ! is_array($implements)) {
                             $implements = [];
                         }
                         $properties[$propertyName]['isExtend'] = in_array(
                             InsertExtendInterface::class,
                             $implements,
-                            true
+                            true,
                         );
                         $properties[$propertyName]['isEnum'] = in_array(
                             BackedEnum::class,
                             $implements,
-                            true
+                            true,
                         );
                         $properties[$propertyName]['isDateTime'] = $type->getName() === DateTimeInterface::class
                             || in_array(
                                 DateTimeInterface::class,
                                 $implements,
-                                true
+                                true,
                             );
 
                         // Auto instantiate collection properties
@@ -294,7 +294,7 @@ trait ModelConfigProvider
             $attributes = $property->getAttributes(ModelRelation::class, ReflectionAttribute::IS_INSTANCEOF);
             if (count($attributes) > 1) {
                 throw new RuntimeException(
-                    'Cannot have more than 1 relation attribute on a property: '.static::class.'::$'.$propertyName
+                    'Cannot have more than 1 relation attribute on a property: ' . static::class . '::$' . $propertyName,
                 );
             }
             foreach ($attributes as $attribute) {
@@ -320,16 +320,16 @@ trait ModelConfigProvider
                     'loadingType' => $attributeClass->loadingType,
                     'factoryMethod' => $attributeClass->factoryMethod,
                 ];
-                if ($attributeClass->factoryMethod !== null && !static::getReflection()->hasMethod(
-                        $attributeClass->factoryMethod
-                    )) {
+                if ($attributeClass->factoryMethod !== null && ! static::getReflection()->hasMethod(
+                    $attributeClass->factoryMethod,
+                )) {
                     throw new RuntimeException(
                         sprintf(
                             'Factory method "%s" does not exists on class "%s" for the relation on property "%s".',
                             $attributeClass->factoryMethod,
                             static::class,
-                            $propertyName
-                        )
+                            $propertyName,
+                        ),
                     );
                 }
             }
@@ -344,7 +344,7 @@ trait ModelConfigProvider
      *
      * @return ReflectionProperty[]
      */
-    protected static function getPropertyReflections(?int $filter = null) : array {
+    protected static function getPropertyReflections(?int $filter = null): array {
         return static::getReflection()->getProperties($filter);
     }
 
@@ -353,9 +353,9 @@ trait ModelConfigProvider
      *
      * @return array<non-empty-string, PropertyConfig>
      */
-    protected static function getProperties() : array {
+    protected static function getProperties(): array {
         // Prevent infinite loop due to cyclic relations
-        if (!static::canUseConfig()) {
+        if ( ! static::canUseConfig()) {
             return static::findProperties();
         }
         return static::getModelConfig()->properties;
@@ -366,8 +366,8 @@ trait ModelConfigProvider
      *
      * @return ReflectionClass<Model>
      */
-    protected static function getReflection() : ReflectionClass {
-        if (!isset(ModelRepository::$reflections[static::class])) {
+    protected static function getReflection(): ReflectionClass {
+        if ( ! isset(ModelRepository::$reflections[static::class])) {
             /** @phpstan-ignore assign.propertyType */
             ModelRepository::$reflections[static::class] = new ReflectionClass(static::class);
         }
@@ -380,9 +380,9 @@ trait ModelConfigProvider
      *
      * @return Factory|null
      */
-    public static function getFactory() : ?Factory {
+    public static function getFactory(): ?Factory {
         // Prevent infinite loop due to cyclic relations
-        if (!static::canUseConfig()) {
+        if ( ! static::canUseConfig()) {
             return static::findFactory();
         }
         return static::getModelConfig()->factory;
@@ -393,8 +393,8 @@ trait ModelConfigProvider
      *
      * @return Factory|null
      */
-    protected static function findFactory() : ?Factory {
-        if (!isset(ModelRepository::$factory[static::class])) {
+    protected static function findFactory(): ?Factory {
+        if ( ! isset(ModelRepository::$factory[static::class])) {
             $attributes = static::getReflection()->getAttributes(Factory::class);
             if (empty($attributes)) {
                 return null;
@@ -409,7 +409,7 @@ trait ModelConfigProvider
     /**
      * @return non-empty-string[]
      */
-    public static function findBeforeUpdate() : array {
+    public static function findBeforeUpdate(): array {
         return static::findHooks(BeforeUpdate::class);
     }
 
@@ -418,7 +418,7 @@ trait ModelConfigProvider
      * @param  bool  $static
      * @return ($static is true ? list<callable(int $id):void> : non-empty-string[])
      */
-    protected static function findHooks(string $hook, bool $static = false) : array {
+    protected static function findHooks(string $hook, bool $static = false): array {
         $hooks = [];
         $methods = static::getReflection()->getMethods($static ? ReflectionMethod::IS_STATIC : null);
         foreach ($methods as $method) {
@@ -435,42 +435,42 @@ trait ModelConfigProvider
     /**
      * @return non-empty-string[]
      */
-    public static function findAfterUpdate() : array {
+    public static function findAfterUpdate(): array {
         return static::findHooks(AfterUpdate::class);
     }
 
     /**
      * @return non-empty-string[]
      */
-    public static function findBeforeInsert() : array {
+    public static function findBeforeInsert(): array {
         return static::findHooks(BeforeInsert::class);
     }
 
     /**
      * @return non-empty-string[]
      */
-    public static function findAfterInsert() : array {
+    public static function findAfterInsert(): array {
         return static::findHooks(AfterInsert::class);
     }
 
     /**
      * @return non-empty-string[]
      */
-    public static function findBeforeDelete() : array {
+    public static function findBeforeDelete(): array {
         return static::findHooks(BeforeDelete::class);
     }
 
     /**
      * @return non-empty-string[]
      */
-    public static function findAfterDelete() : array {
+    public static function findAfterDelete(): array {
         return static::findHooks(AfterDelete::class);
     }
 
     /**
      * @return list<callable(int): void>
      */
-    public static function findAfterExternalUpdate() : array {
+    public static function findAfterExternalUpdate(): array {
         return static::findHooks(AfterExternalUpdate::class, true);
     }
 
@@ -481,16 +481,16 @@ trait ModelConfigProvider
      *
      * @return ReflectionProperty
      */
-    public static function getPropertyReflection(string $name) : ReflectionProperty {
+    public static function getPropertyReflection(string $name): ReflectionProperty {
         return static::getReflection()->getProperty($name);
     }
 
     /**
      * @return non-empty-string[]
      */
-    public static function getBeforeUpdate() : array {
+    public static function getBeforeUpdate(): array {
         // Prevent infinite loop due to cyclic relations
-        if (!static::canUseConfig()) {
+        if ( ! static::canUseConfig()) {
             return static::findBeforeUpdate();
         }
         return static::getModelConfig()->beforeUpdate;
@@ -499,9 +499,9 @@ trait ModelConfigProvider
     /**
      * @return non-empty-string[]
      */
-    public static function getAfterUpdate() : array {
+    public static function getAfterUpdate(): array {
         // Prevent infinite loop due to cyclic relations
-        if (!static::canUseConfig()) {
+        if ( ! static::canUseConfig()) {
             return static::findAfterUpdate();
         }
         return static::getModelConfig()->afterUpdate;
@@ -510,9 +510,9 @@ trait ModelConfigProvider
     /**
      * @return non-empty-string[]
      */
-    public static function getBeforeInsert() : array {
+    public static function getBeforeInsert(): array {
         // Prevent infinite loop due to cyclic relations
-        if (!static::canUseConfig()) {
+        if ( ! static::canUseConfig()) {
             return static::findBeforeInsert();
         }
         return static::getModelConfig()->beforeInsert;
@@ -521,9 +521,9 @@ trait ModelConfigProvider
     /**
      * @return non-empty-string[]
      */
-    public static function getAfterInsert() : array {
+    public static function getAfterInsert(): array {
         // Prevent infinite loop due to cyclic relations
-        if (!static::canUseConfig()) {
+        if ( ! static::canUseConfig()) {
             return static::findAfterInsert();
         }
         return static::getModelConfig()->afterInsert;
@@ -532,9 +532,9 @@ trait ModelConfigProvider
     /**
      * @return non-empty-string[]
      */
-    public static function getBeforeDelete() : array {
+    public static function getBeforeDelete(): array {
         // Prevent infinite loop due to cyclic relations
-        if (!static::canUseConfig()) {
+        if ( ! static::canUseConfig()) {
             return static::findBeforeDelete();
         }
         return static::getModelConfig()->beforeDelete;
@@ -543,9 +543,9 @@ trait ModelConfigProvider
     /**
      * @return non-empty-string[]
      */
-    public static function getAfterDelete() : array {
+    public static function getAfterDelete(): array {
         // Prevent infinite loop due to cyclic relations
-        if (!static::canUseConfig()) {
+        if ( ! static::canUseConfig()) {
             return static::findAfterDelete();
         }
         return static::getModelConfig()->afterDelete;
@@ -554,9 +554,9 @@ trait ModelConfigProvider
     /**
      * @return list<callable(int $id):void>
      */
-    public static function getAfterExternalUpdate() : array {
+    public static function getAfterExternalUpdate(): array {
         // Prevent infinite loop due to cyclic relations
-        if (!static::canUseConfig()) {
+        if ( ! static::canUseConfig()) {
             return static::findAfterExternalUpdate();
         }
         return static::getModelConfig()->afterExternalUpdate;

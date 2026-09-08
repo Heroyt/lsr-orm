@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 
 final class OrmCommandRegistrationTest extends TestCase
 {
-    public function testDeclaresCommandWhenConsoleSupportIsAvailable(): void {
+    public function test_declares_command_when_console_support_is_available(): void {
         $compiler = new Compiler();
         $compiler->addExtension('orm', new OrmExtension());
         $compiler->processExtensions();
@@ -19,7 +19,7 @@ final class OrmCommandRegistrationTest extends TestCase
         self::assertTrue($definition->getTag('console.command'));
     }
 
-    public function testCommandDeclarationCanBeDisabled(): void {
+    public function test_command_declaration_can_be_disabled(): void {
         $compiler = new Compiler();
         $compiler->addExtension('orm', new OrmExtension());
         $compiler->addConfig([

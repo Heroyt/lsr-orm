@@ -32,7 +32,7 @@ final class OrmCacheCleanCommandTest extends TestCase
         }
     }
 
-    public function testClearsOrmCacheFiles(): void {
+    public function test_clears_orm_cache_files(): void {
         file_put_contents($this->directory . '/model-config.php', '<?php return [];');
         file_put_contents($this->directory . '/model-config.php.lock', '');
         file_put_contents($this->directory . '/model-config.php.meta', '');
@@ -52,7 +52,7 @@ final class OrmCacheCleanCommandTest extends TestCase
         self::assertStringContainsString('ORM cache cleared successfully.', $tester->getDisplay());
     }
 
-    public function testRejectsRootFrameworkTempDirectory(): void {
+    public function test_rejects_root_framework_temp_directory(): void {
         $tester = new CommandTester(new OrmCacheCleanCommand(DIRECTORY_SEPARATOR));
 
         $code = $tester->execute([]);

@@ -44,7 +44,7 @@ final class OrmCacheCleanCommand extends Command
         foreach (array_unique($directories) as $directory) {
             $directory = rtrim($directory, '/\\') . DIRECTORY_SEPARATOR;
 
-            if (!is_dir($directory)) {
+            if ( ! is_dir($directory)) {
                 $output->writeln(
                     "<comment>Directory {$directory} does not exist.</comment>",
                     OutputInterface::VERBOSITY_VERBOSE,
@@ -68,14 +68,14 @@ final class OrmCacheCleanCommand extends Command
 
             $removed = 0;
             foreach (array_unique($files) as $file) {
-                if (!is_file($file)) {
+                if ( ! is_file($file)) {
                     $output->writeln(
                         "<comment>Skipped {$file} - not a file.</comment>",
                         OutputInterface::VERBOSITY_DEBUG,
                     );
                     continue;
                 }
-                if (!unlink($file)) {
+                if ( ! unlink($file)) {
                     $output->writeln("<error>Failed to delete file {$file}.</error>");
                     $success = false;
                     continue;
@@ -90,7 +90,7 @@ final class OrmCacheCleanCommand extends Command
             );
         }
 
-        if (!$success) {
+        if ( ! $success) {
             $output->writeln(
                 '<error>Some errors occurred while clearing ORM cache. Please check the messages above.</error>',
             );

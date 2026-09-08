@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * @author Tomáš Vojík <xvojik00@stud.fit.vutbr.cz>, <vojik@wboy.cz>
  */
@@ -68,17 +70,16 @@ abstract class Model implements JsonSerializable, ArrayAccess
      */
     public function __construct(?int $id = null, ?Row $dbRow = null) {
         $pk = $this::getPrimaryKey();
-        if (isset($dbRow->$pk) && !isset($id)) {
+        if (isset($dbRow->$pk) && ! isset($id)) {
             assert(is_int($dbRow->$pk));
             $id = $dbRow->$pk;
         }
-        if (isset($id) && !empty($this::TABLE)) {
+        if (isset($id) && ! empty($this::TABLE)) {
             $this->id = $id;
             ModelRepository::setInstance($this);
             $this->row = $dbRow;
             $this->fetch();
-        }
-        else if (isset($dbRow)) {
+        } elseif (isset($dbRow)) {
             $this->row = $dbRow;
             $this->fillFromRow();
         }
@@ -91,8 +92,7 @@ abstract class Model implements JsonSerializable, ArrayAccess
      * @return bool
      * @phpstan-assert-if-true !null $this->id
      */
-    public function isLoaded(): bool
-    {
+    public function isLoaded(): bool {
         return $this->id !== null;
     }
 
@@ -109,7 +109,7 @@ abstract class Model implements JsonSerializable, ArrayAccess
         );
         try {
             $exists = DB::select(static::TABLE, '*')
-                        ->where('%n = %i', static::getPrimaryKey(), $id)
+                ->where('%n = %i', static::getPrimaryKey(), $id)
                 ->exists($cache);
         } catch (Throwable $exception) {
             ModelRepository::completeLifecycle(
@@ -133,7 +133,7 @@ abstract class Model implements JsonSerializable, ArrayAccess
      * @return (static&LoadedModel)[]
      * @throws ValidationException
      */
-    public static function getAll() : array {
+    public static function getAll(): array {
         return static::query()->get();
     }
 
@@ -148,7 +148,7 @@ abstract class Model implements JsonSerializable, ArrayAccess
      * @throws ModelNotFoundException
      * @throws ValidationException
      */
-    public static function get(int $id, ?Row $row = null) : static {
+    public static function get(int $id, ?Row $row = null): static {
         /** @phpstan-ignore return.type */
         return ModelRepository::getInstance(static::class, $id) ?? new static($id, $row);
     }
@@ -158,7 +158,7 @@ abstract class Model implements JsonSerializable, ArrayAccess
      *
      * @return ModelQuery<static>
      */
-    public static function query() : ModelQuery {
+    public static function query(): ModelQuery {
         return new ModelQuery(static::class);
     }
 
@@ -166,7 +166,7 @@ abstract class Model implements JsonSerializable, ArrayAccess
      * Clear instance cache
      */
     #[Deprecated('Use Lsr\Orm\ModelRepository::clearInstances()')]
-    public static function clearInstances() : void {
+    public static function clearInstances(): void {
         ModelRepository::clearInstances(static::class);
     }
 
@@ -176,7 +176,7 @@ abstract class Model implements JsonSerializable, ArrayAccess
      * @return void
      * @throws \Lsr\ObjectValidation\Exceptions\ValidationException
      */
-    public function validate() : void {
+    public function validate(): void {
         new Validator()->validateAll($this);
     }
 
