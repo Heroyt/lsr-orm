@@ -21,8 +21,11 @@ use Nette\DI\InvalidConfigurationException;
 use Nette\Utils\FileSystem;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\AbstractLogger;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 use stdClass;
+use Stringable;
 
 final class ModelLoggingTest extends TestCase
 {
@@ -107,22 +110,60 @@ final class ModelLoggingTest extends TestCase
     }
 
     public function test_custom_provider_can_return_one_existing_logger_without_wrapping_or_rewriting_it(): void {
-        $storage = new RecordingModelStorage();
-        $shared = new Logger($this->directory, 'shared', $storage);
+        $shared = new RecordingPsrModelLogger();
         ModelRepository::setLoggerProvider(new SharedModelLoggerProvider($shared));
-        $first = (new LoggingModel())->getLogger();
+        $model = new LoggingModel();
+        $first = $model->getLogger();
         $second = (new OtherLoggingModel())->getLogger();
         self::assertSame($shared, $first);
         self::assertSame($shared, $second);
+        self::assertSame($shared, $model->protectedLogger());
         ModelRepository::clearLoggers();
         self::assertSame($shared, ModelRepository::getLogger(LoggingModel::class));
 
         $exception = new RuntimeException('shared failure', 17);
-        $first->exception($exception);
+        $first->error('shared failure', ['exception' => $exception, 'lsr.orm.model' => 'caller']);
+        $second->debug('second model', ['id' => 42]);
         self::assertSame([
-            ['error', 'Thrown Exception (17): shared failure', []],
-            ['debug', $exception->getTraceAsString(), []],
-        ], $storage->records);
+            ['error', 'shared failure', ['exception' => $exception, 'lsr.orm.model' => 'caller']],
+            ['debug', 'second model', ['id' => 42]],
+        ], $shared->records);
+    }
+
+    public function test_psr_provider_switch_and_cache_clear_preserve_acquired_instances(): void {
+        $original = new RecordingPsrModelLogger();
+        ModelRepository::setLoggerProvider(new SharedModelLoggerProvider($original));
+        $retainedModel = new LoggingModel();
+        self::assertSame($original, $retainedModel->getLogger());
+        $waitingModel = new LoggingModel();
+
+        ModelRepository::setLoggerProvider(new class implements ModelLoggerProviderInterface {
+            public function getLogger(string $modelClass): LoggerInterface {
+                return new RecordingPsrModelLogger();
+            }
+        });
+        $replacement = $waitingModel->getLogger();
+        self::assertInstanceOf(RecordingPsrModelLogger::class, $replacement);
+        self::assertNotSame($original, $replacement);
+        self::assertSame($replacement, (new LoggingModel())->getLogger());
+        self::assertNotSame($replacement, (new OtherLoggingModel())->getLogger());
+        self::assertSame($original, $retainedModel->protectedLogger());
+
+        ModelRepository::clearLoggers();
+        $afterClear = (new LoggingModel())->getLogger();
+        self::assertInstanceOf(RecordingPsrModelLogger::class, $afterClear);
+        self::assertNotSame($replacement, $afterClear);
+        self::assertSame($afterClear, ModelRepository::getLogger(LoggingModel::class));
+        self::assertSame($replacement, $waitingModel->getLogger());
+        self::assertSame($replacement, $waitingModel->protectedLogger());
+        self::assertSame($original, $retainedModel->getLogger());
+
+        $retainedModel->getLogger()->info('retained');
+        $waitingModel->getLogger()->warning('replacement');
+        $afterClear->error('after clear');
+        self::assertSame([['info', 'retained', []]], $original->records);
+        self::assertSame([['warning', 'replacement', []]], $replacement->records);
+        self::assertSame([['error', 'after clear', []]], $afterClear->records);
     }
 
     public function test_storage_failure_propagates_synchronously(): void {
@@ -160,20 +201,31 @@ NEON);
     }
 
     public function test_di_selects_custom_provider_even_when_commands_are_disabled(): void {
+        $waitingModel = new LoggingModel();
+        $fallback = ModelRepository::getLogger(LoggingModel::class);
         $container = $this->compileNeon(<<<'NEON'
 persistence:
     commands: false
     logging:
         provider: @customProvider
 services:
-    model.storage: TestCases\Logging\RecordingModelStorage
-    logger: Lsr\Logging\Logger(%output%, shared, @model.storage)
+    logger: TestCases\Logging\RecordingPsrModelLogger
     customProvider: TestCases\Logging\SharedModelLoggerProvider(@logger)
 NEON);
+        self::assertSame($fallback, ModelRepository::getLogger(LoggingModel::class));
         $container->initialize();
         self::assertSame($container->getService('customProvider'), $container->getService('persistence.loggerProvider'));
-        self::assertSame($container->getService('logger'), (new LoggingModel())->getLogger());
-        self::assertSame($container->getService('logger'), (new OtherLoggingModel())->getLogger());
+        $shared = $container->getService('logger');
+        self::assertInstanceOf(RecordingPsrModelLogger::class, $shared);
+        self::assertSame($shared, $waitingModel->getLogger());
+        self::assertSame($shared, $waitingModel->protectedLogger());
+        self::assertSame($shared, (new OtherLoggingModel())->getLogger());
+        $waitingModel->getLogger()->info('after initialization', ['id' => 42]);
+        (new OtherLoggingModel())->getLogger()->warning('another model');
+        self::assertSame([
+            ['info', 'after initialization', ['id' => 42]],
+            ['warning', 'another model', []],
+        ], $shared->records);
     }
 
     /** @param array<string, mixed> $logging */
@@ -217,7 +269,7 @@ class LoggingModel extends Model
 {
     public const string TABLE = 'orm_logging_test';
 
-    public function protectedLogger(): Logger {
+    public function protectedLogger(): LoggerInterface {
         return $this->logger;
     }
 }
@@ -245,10 +297,21 @@ final class RecordingModelStorage implements StorageInterface
 
 final readonly class SharedModelLoggerProvider implements ModelLoggerProviderInterface
 {
-    public function __construct(private Logger $logger) {
+    public function __construct(private LoggerInterface $logger) {
     }
 
-    public function getLogger(string $modelClass): Logger {
+    public function getLogger(string $modelClass): LoggerInterface {
         return $this->logger;
+    }
+}
+
+final class RecordingPsrModelLogger extends AbstractLogger
+{
+    /** @var list<array{mixed, string, array<string, mixed>}> */
+    public array $records = [];
+
+    /** @param string|Stringable $message */
+    public function log($level, $message, array $context = []): void {
+        $this->records[] = [$level, (string) $message, $context];
     }
 }

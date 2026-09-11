@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Lsr\Orm;
 
-use Lsr\Logging\Logger;
 use Lsr\Orm\Attributes\Factory;
 use Lsr\Orm\Config\ModelConfig;
 use Lsr\Orm\Interfaces\LoadedModel;
@@ -12,6 +11,7 @@ use Lsr\Orm\Lifecycle\ModelLifecycleHookInterface;
 use Lsr\Orm\Lifecycle\ModelLifecycleScopeInterface;
 use Lsr\Orm\Logging\LsrModelLoggerProvider;
 use Lsr\Orm\Logging\ModelLoggerProviderInterface;
+use Psr\Log\LoggerInterface;
 use ReflectionClass;
 use Throwable;
 
@@ -22,7 +22,7 @@ final class ModelRepository
      */
     private static array $instances = [];
 
-    /** @var array<class-string<Model>, Logger> */
+    /** @var array<class-string<Model>, LoggerInterface> */
     private static array $loggers = [];
 
     private static ?ModelLoggerProviderInterface $loggerProvider = null;
@@ -124,9 +124,9 @@ final class ModelRepository
 
     /**
      * @param  class-string<Model>  $class
-     * @return Logger
+     * @return LoggerInterface
      */
-    public static function getLogger(string $class): Logger {
+    public static function getLogger(string $class): LoggerInterface {
         self::$loggers[$class] ??= (self::$loggerProvider ??= new LsrModelLoggerProvider())->getLogger($class);
         return self::$loggers[$class];
     }
