@@ -43,6 +43,7 @@ final class Translations extends ModelRelation
             || ! $property->isPublic()
             || $property->isStatic()
             || $property->isReadOnly()
+            || $property->isPrivateSet()
             || $property->isVirtual()
             || $property->getHooks() !== []
         ) {
@@ -63,6 +64,7 @@ final class Translations extends ModelRelation
         foreach ([$parent, $locale] as $field) {
             if (
                 ! $field->isPublic() || $field->isStatic() || $field->isReadOnly()
+                || $field->isPrivateSet() || $field->isProtectedSet()
                 || $field->isVirtual() || $field->getHooks() !== []
                 || $field->getAttributes(NoDB::class) !== []
                 || $field->getAttributes(Transform::class, ReflectionAttribute::IS_INSTANCEOF) !== []
