@@ -17,6 +17,7 @@ use Lsr\Orm\Attributes\Relations\ManyToMany;
 use Lsr\Orm\Attributes\Relations\ManyToOne;
 use Lsr\Orm\Attributes\Relations\OneToMany;
 use Lsr\Orm\Attributes\Relations\OneToOne;
+use Lsr\Orm\Attributes\Relations\Translations;
 use Lsr\Orm\Attributes\Transform;
 use Lsr\Orm\Config\ModelConfig;
 use Lsr\Orm\Exceptions\ModelNotFoundException;
@@ -28,6 +29,7 @@ use Lsr\Orm\LoadingType;
 use Lsr\Orm\Model;
 use Lsr\Orm\ModelCollection;
 use Lsr\Orm\ModelRepository;
+use Lsr\Orm\TranslationCollection;
 use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionException;
@@ -194,6 +196,11 @@ trait ModelFetch
                 throw new UndefinedPropertyException('Undefined property ' . $this::class . '::$' . $propertyName);
             }
         }
+        if ($relation['type'] === Translations::class) {
+            $this->$propertyName = new TranslationCollection($this, $relation);
+            return;
+        }
+
 
         /** @var class-string<Model> $className */
         $className = $relation['class'];
@@ -230,6 +237,7 @@ trait ModelFetch
                      */
                     $factoryClosure = fn () => $this->$method();
                 } else {
+                    assert($id !== null);
                     /**
                      * @return Model|null
                      * @throws ModelNotFoundException
@@ -615,6 +623,10 @@ trait ModelFetch
             // If the property does not have the Instantiate attribute - skip
             // If the property already has a value - skip
             if ( ! $property['instantiate'] || isset($this->$propertyName)) {
+                continue;
+            }
+            if (($property['relation']['type'] ?? null) === Translations::class) {
+                $this->$propertyName = new TranslationCollection($this, $property['relation']);
                 continue;
             }
 

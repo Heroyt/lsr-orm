@@ -23,7 +23,9 @@ use Lsr\Orm\Model;
  *     foreignKey: string,
  *     localKey: string,
  *     loadingType: LoadingType,
- *     factoryMethod: string|null
+ *     factoryMethod: string|null,
+ *     mappedBy?: string,
+ *     localeProperty?: string
  * }
  * @phpstan-type PropertyConfig array{
  *     name:string,

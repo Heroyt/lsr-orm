@@ -6,6 +6,7 @@ namespace Lsr\Orm\Traits;
 
 use Lsr\Orm\Attributes;
 use Lsr\Orm\Attributes\JsonExclude;
+use Lsr\Orm\Attributes\Relations\Translations;
 use ReflectionClass;
 use ReflectionNamedType;
 use ReflectionProperty;
@@ -32,6 +33,7 @@ trait WithSerialization
             if (
                 ! $property->isInitialized($this)
                 || ! empty($property->getAttributes(JsonExclude::class))
+                || ! empty($property->getAttributes(Translations::class))
             ) {
                 continue;
             }

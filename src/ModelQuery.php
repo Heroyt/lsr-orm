@@ -8,8 +8,10 @@ declare(strict_types=1);
 
 namespace Lsr\Orm;
 
+use InvalidArgumentException;
 use Lsr\Db\DB;
 use Lsr\Db\Dibi\Fluent;
+use Lsr\Orm\Attributes\Relations\Translations;
 use Lsr\Orm\Exceptions\ModelNotFoundException;
 use Lsr\Orm\Exceptions\ValidationException;
 use Lsr\Orm\Interfaces\LoadedModel;
@@ -22,6 +24,41 @@ use Throwable;
 class ModelQuery
 {
     protected Fluent $query;
+
+    /** @var array<string, list<string>> */
+    private array $translationLocales = [];
+
+    /**
+     * Preload a locale-keyed relation without changing parent filtering or pagination.
+     *
+     * @param list<string> $locales
+     * @return $this
+     */
+    public function withTranslations(array $locales, string $property = 'translations'): static {
+        TranslationCollection::validateLocales($locales);
+        $relation = $this->className::getModelConfig()->properties[$property]['relation'] ?? null;
+        if (($relation['type'] ?? null) !== Translations::class) {
+            throw new InvalidArgumentException('The requested property is not a Translations relation.');
+        }
+        $this->translationLocales[$property] = array_values(array_unique([
+            ...($this->translationLocales[$property] ?? []),
+            ...$locales,
+        ]));
+        return $this;
+    }
+
+    /** @param array<int, T&LoadedModel> $models */
+    private function preloadTranslations(array $models): void {
+        foreach ($this->translationLocales as $property => $locales) {
+            $collections = [];
+            foreach ($models as $model) {
+                $collection = $model->$property;
+                assert($collection instanceof TranslationCollection);
+                $collections[] = $collection;
+            }
+            TranslationCollection::preload($collections, $locales);
+        }
+    }
 
     /**
      * @param  class-string<T>  $className
@@ -184,6 +221,7 @@ class ModelQuery
                 /** @var class-string<T&LoadedModel> $className */
                 $className = $this->className;
                 $model = new $className($row->{$this->className::getPrimaryKey()}, $row);
+                $this->preloadTranslations([$model]);
             }
         } catch (Throwable $exception) {
             ModelRepository::completeLifecycle(
@@ -225,6 +263,7 @@ class ModelQuery
                 } catch (ModelNotFoundException) {
                 }
             }
+            $this->preloadTranslations($models);
         } catch (Throwable $exception) {
             ModelRepository::completeLifecycle(
                 $scope,

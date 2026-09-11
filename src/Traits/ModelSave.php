@@ -15,6 +15,7 @@ use Lsr\Orm\Attributes\Relations\ManyToMany;
 use Lsr\Orm\Attributes\Relations\ManyToOne;
 use Lsr\Orm\Attributes\Relations\OneToMany;
 use Lsr\Orm\Attributes\Relations\OneToOne;
+use Lsr\Orm\Attributes\Relations\Translations;
 use Lsr\Orm\Attributes\Transform;
 use Lsr\Orm\Config\ModelConfig;
 use Lsr\Orm\Exceptions\ValidationException;
@@ -23,6 +24,7 @@ use Lsr\Orm\Lifecycle\ModelLifecycleEvent;
 use Lsr\Orm\Model;
 use Lsr\Orm\ModelCollection;
 use Lsr\Orm\ModelRepository;
+use Lsr\Orm\TranslationCollection;
 use PDO;
 use ReflectionAttribute;
 use ReflectionException;
@@ -258,6 +260,7 @@ trait ModelSave
                 return false;
             }
         }
+        TranslationCollection::invalidate($this);
 
         if ( ! $this->updateOneToManyRelations()) {
             return false;
@@ -655,6 +658,12 @@ trait ModelSave
             $this->getLogger()->debug($e->getTraceAsString());
             return false;
         }
+        TranslationCollection::invalidate($this);
+        foreach ($this::getProperties() as $property) {
+            if (($property['relation']['type'] ?? null) === Translations::class) {
+                ModelRepository::clearInstances($property['relation']['class']);
+            }
+        }
 
         foreach ($this::getAfterDelete() as $method) {
             if (method_exists($this, $method)) {
@@ -725,6 +734,7 @@ trait ModelSave
             return false;
         }
         ModelRepository::setInstance($this);
+        TranslationCollection::invalidate($this);
 
         if ( ! $this->updateOneToManyRelations(false)) {
             return false;

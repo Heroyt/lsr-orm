@@ -24,6 +24,7 @@ use Lsr\Orm\Attributes\Relations\ManyToOne;
 use Lsr\Orm\Attributes\Relations\ModelRelation;
 use Lsr\Orm\Attributes\Relations\OneToMany;
 use Lsr\Orm\Attributes\Relations\OneToOne;
+use Lsr\Orm\Attributes\Relations\Translations;
 use Lsr\Orm\Attributes\Transform;
 use Lsr\Orm\Interfaces\InsertExtendInterface;
 use Lsr\Orm\Model;
@@ -298,8 +299,14 @@ trait ModelConfigProvider
                 );
             }
             foreach ($attributes as $attribute) {
-                /** @var ManyToOne|OneToMany|OneToOne|ManyToMany $attributeClass */
+                /** @var ManyToOne|OneToMany|OneToOne|ManyToMany|Translations $attributeClass */
                 $attributeClass = $attribute->newInstance();
+                if ($attributeClass instanceof Translations) {
+                    $properties[$propertyName]['relation'] = $attributeClass->getConfig(static::class, $property);
+                    $properties[$propertyName]['noDb'] = true;
+                    $properties[$propertyName]['instantiate'] = true;
+                    continue;
+                }
 
                 /** @var stdClass $info */
                 $info = $attributeClass->getType($property);

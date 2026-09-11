@@ -132,8 +132,9 @@ final class ModelRepository
      * @return void
      */
     public static function clearInstances(?string $class = null): void {
+        TranslationCollection::clearInstances($class);
         if (isset($class)) {
-            foreach (self::$instances[$class] as $id => $model) {
+            foreach (self::$instances[$class] ?? [] as $id => $model) {
                 unset(self::$instances[$class][$id]);
             }
             self::$instances[$class] = [];
