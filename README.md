@@ -5,10 +5,10 @@
 ## Requirements
 
 - PHP `>=8.4`.
-- Nette DI `^3.2`, LSR logging/cache/serializer `^0.3`, DB `^0.3.1` and object-validation `^0.3.4`.
+- Nette DI `^3.2`, LSR logging `^0.3.2`, cache/serializer `^0.3`, DB `^0.3.1` and object-validation `^0.3.4`.
 - No PHP extensions are declared directly; install the extensions required by the database driver and other dependencies. See [composer.json](composer.json).
 - A configured `Lsr\Db\Connection` with its cache and mapper services, initialized through `Lsr\Db\DB::init()`, and application-owned database tables.
-- `TMP_DIR` and `LOG_DIR` constants with trailing directory separators and writable locations. Model metadata is generated under `TMP_DIR . 'models/'`; model loggers write under `LOG_DIR . 'models/'`.
+- `TMP_DIR` and, for default file logging, `LOG_DIR` constants with trailing directory separators and writable locations. Model metadata is generated under `TMP_DIR . 'models/'`; default model loggers write under `LOG_DIR . 'models/'`.
 - Optional `lsr/console` integration to load the `orm:cache:clean` command into the framework console.
 
 ## Installation
@@ -208,7 +208,91 @@ The ORM does not bootstrap a connection by itself. The [database test helper](te
 - [`Attributes`](src/Attributes) contains relationship, mapping, serialization and lifecycle declarations. [`ModelCollection`](src/ModelCollection.php) represents typed model collections.
 - [`ModelRepository`](src/ModelRepository.php) holds loaded model instances and generated configuration state in process memory. Long-running applications must manage this state at appropriate lifecycle boundaries; `ModelRepository::clearInstances()` clears the instance registry.
 - Model metadata is generated as PHP files under the model cache directory. When model declarations change, invalidate the generated metadata as part of deployment; do not treat it as application source.
-- [`Lsr\Orm\DI\OrmExtension`](src/DI/OrmExtension.php) registers `orm:cache:clean` when `commands` is enabled and Symfony Console is available. It does not wire the database/cache stack. The [command implementation](src/Commands/OrmCacheCleanCommand.php) is the reference for cache-cleaning integration.
+- [`Lsr\Orm\DI\OrmExtension`](src/DI/OrmExtension.php) registers `orm:cache:clean` when `commands` is enabled and Symfony Console is available, and selects the model logger provider during container initialization. It does not wire the database/cache stack. The [command implementation](src/Commands/OrmCacheCleanCommand.php) is the reference for cache-cleaning integration.
+
+## Model logging
+
+**Unreleased:** configurable model logging is available in the working tree, not in an existing published ORM version. It requires `lsr/logging ^0.3.2`; check installed source before using it.
+
+This patch keeps `Model::getLogger(): Lsr\Logging\Logger` and the inherited protected `Logger $logger` property unchanged. Custom providers must implement the ORM-owned [`ModelLoggerProviderInterface`](src/Logging/ModelLoggerProviderInterface.php):
+
+```php
+use Lsr\Logging\Logger;
+use Lsr\Orm\Logging\ModelLoggerProviderInterface;
+use Lsr\Orm\Model;
+
+final readonly class SharedModelLoggerProvider implements ModelLoggerProviderInterface
+{
+    public function __construct(private Logger $logger) {}
+
+    /** @param class-string<Model> $modelClass */
+    public function getLogger(string $modelClass): Logger
+    {
+        return $this->logger;
+    }
+}
+```
+
+A generic PSR-3 provider or return type is **not** supported in this patch. A custom provider may return an existing shared **LSR** logger; the ORM returns that exact object without wrapping it or modifying its records. Such a provider owns model identity/routing if needed. `exception()` and `logDb()` remain available to application callers. Internal ORM exception logging emits the same error message followed by the same debug trace, with no merged events or swallowed storage exceptions.
+
+### Defaults and lifetime
+
+Without DI or custom configuration, the repository lazily creates one logger per model class using `new Logger(LOG_DIR . 'models/', $modelClass::TABLE)`. Existing filenames, message levels/content and context remain unchanged. The unrelated application `@logger` is never selected implicitly.
+
+[`LsrModelLoggerProvider`](src/Logging/LsrModelLoggerProvider.php) accepts `?string $directory = null` and `?Lsr\Logging\Interface\StorageInterface $storage = null`. A directory replaces the complete model log directory, not its parent. `LOG_DIR` is evaluated only at first default logger lookup, not when compiling or initializing DI. With explicit storage, the storage owns output destinations and no `LOG_DIR` is needed; the optional directory is only the LSR logger's path argument.
+
+`ModelRepository` owns the per-class logger cache; the built-in provider does not keep a duplicate cache. Direct provider calls construct loggers rather than caching them. `ModelRepository::setLoggerProvider(?ModelLoggerProviderInterface $provider): void` selects the provider and clears the repository logger cache; `null` restores standalone defaults. `clearLoggers()` clears only that cache, retaining the provider. A custom provider may return the same shared logger again after a clear.
+
+Model instances that already acquired a logger retain it, including protected-property access by subclasses. This preserves existing instance-lifetime behavior. Instances created earlier but not yet accessing a logger use the currently selected provider. Changing providers or clearing the cache does not rewrite already-retained logger references. Initialize the container before model logging, and do not retain models across application lifecycle boundaries.
+
+### Nette DI configuration
+
+```neon
+extensions:
+    orm: Lsr\Orm\DI\OrmExtension
+
+orm:
+    logging:
+        provider: null
+        storage: null
+        directory: null
+```
+
+The extension always exposes non-autowired `@orm.loggerProvider` (or `<extension>.loggerProvider` under another extension name), including when `commands: false`. Normal `Container::initialize()` installs it in `ModelRepository`; merely compiling or constructing a raw container does not. Model logging during earlier extension initialization or during provider construction still precedes this activation, so keep it after container initialization. The static repository is process-wide: initializing another container selects its provider for subsequent lookups.
+
+`provider` and `storage` accept native named `@service` references. To use the custom provider above:
+
+```neon
+services:
+    sharedModelProvider: SharedModelLoggerProvider(@logger)
+
+orm:
+    logging:
+        provider: @sharedModelProvider
+```
+
+A non-null `provider` cannot be combined with non-null `storage` or `directory`; conflicting settings and incompatible service types are rejected rather than silently ignored.
+
+### Shared stacks and OpenTelemetry
+
+For the built-in provider, `logging.storage` replaces the default per-table file storage with an explicitly selected base storage. It may be a shared stack:
+
+```neon
+services:
+    modelFormatter: Lsr\Logging\Formatter\LegacyFormatter
+    modelFile: Lsr\Logging\Storage\DailyLogStorage(%modelLogDir%, models, @modelFormatter)
+    modelStack: Lsr\Logging\Storage\StackStorage([@modelFile, @otel.logging.storage])
+
+orm:
+    logging:
+        storage: @modelStack
+```
+
+Here `%modelLogDir%` is an application-defined writable directory; `@otel.logging.storage` must be supplied by an enabled `Lsr\Otel\DI\OtelExtension` registered as `otel`. This OTEL example requires the compatible optional OTEL package and logging `^0.3.4`; base-storage injection itself uses APIs available since logging `0.3.2`, now the ORM runtime minimum. To export only to OTEL, select `storage: @otel.logging.storage` directly.
+
+Only the configured-storage path adds authoritative `lsr.orm.model` (fully qualified model class) and `lsr.orm.table` context keys, replacing caller values for those reserved keys while preserving other context. Even two classes mapped to one table remain distinguishable. An internal LSR Logger subclass adds this context then uses the normal parent logging pipeline; record-aware storage on logging `0.3.4+` also retains the table as `lsr.logger.name`. Stack exception policy, filtering, ordering and flush behavior remain those of the configured logging/telemetry services.
+
+Dynamic model loggers are not DI logger services, so OTEL `autoWire` cannot discover them. **Explicitly select an OTEL-containing base storage** rather than relying on `autoWire` to instrument every model. This opt-in shared storage does not automatically retain the old per-table file destinations: put the desired file destinations in the stack, or supply a custom concrete provider when routing must vary by model.
 
 ## Development
 
