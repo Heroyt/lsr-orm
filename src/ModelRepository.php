@@ -10,6 +10,8 @@ use Lsr\Orm\Config\ModelConfig;
 use Lsr\Orm\Interfaces\LoadedModel;
 use Lsr\Orm\Lifecycle\ModelLifecycleHookInterface;
 use Lsr\Orm\Lifecycle\ModelLifecycleScopeInterface;
+use Lsr\Orm\Logging\LsrModelLoggerProvider;
+use Lsr\Orm\Logging\ModelLoggerProviderInterface;
 use ReflectionClass;
 use Throwable;
 
@@ -22,6 +24,8 @@ final class ModelRepository
 
     /** @var array<class-string<Model>, Logger> */
     private static array $loggers = [];
+
+    private static ?ModelLoggerProviderInterface $loggerProvider = null;
 
     private static ?ModelLifecycleHookInterface $lifecycleHook = null;
 
@@ -123,8 +127,17 @@ final class ModelRepository
      * @return Logger
      */
     public static function getLogger(string $class): Logger {
-        self::$loggers[$class] ??= new Logger(LOG_DIR . 'models/', $class::TABLE);
+        self::$loggers[$class] ??= (self::$loggerProvider ??= new LsrModelLoggerProvider())->getLogger($class);
         return self::$loggers[$class];
+    }
+
+    /**
+     * Select the provider for future logger lookups; null restores the standalone default.
+     * Models that already acquired a logger retain it for their lifetime.
+     */
+    public static function setLoggerProvider(?ModelLoggerProviderInterface $provider): void {
+        self::$loggerProvider = $provider;
+        self::clearLoggers();
     }
 
     /**
@@ -151,9 +164,7 @@ final class ModelRepository
     }
 
     public static function clearLoggers(): void {
-        foreach (self::$loggers as $class => $loggers) {
-            unset(self::$loggers[$class]);
-        }
+        // Do not reset the selected provider or loggers retained by existing models.
         self::$loggers = [];
     }
 }

@@ -256,7 +256,8 @@ trait ModelSave
             } catch (Exception $e) {
                 $this->getLogger()->error('Error running update query: ' . $e->getMessage());
                 $this->getLogger()->debug('Query: ' . $e->getSql());
-                $this->getLogger()->exception($e);
+                $this->getLogger()->error('Thrown Exception (' . $e->getCode() . '): ' . $e->getMessage());
+                $this->getLogger()->debug($e->getTraceAsString());
                 return false;
             }
         }
@@ -466,7 +467,8 @@ trait ModelSave
                 } catch (Exception $e) {
                     $this->getLogger()->error('Error updating one-to-many relation: ' . $e->getMessage());
                     $this->getLogger()->debug('Query: ' . $e->getSql());
-                    $this->getLogger()->exception($e);
+                    $this->getLogger()->error('Thrown Exception (' . $e->getCode() . '): ' . $e->getMessage());
+                    $this->getLogger()->debug($e->getTraceAsString());
                     return false;
                 }
             }
@@ -488,7 +490,8 @@ trait ModelSave
                 } catch (Exception $e) {
                     $this->getLogger()->error('Error updating one-to-many relation: ' . $e->getMessage());
                     $this->getLogger()->debug('Query: ' . $e->getSql());
-                    $this->getLogger()->exception($e);
+                    $this->getLogger()->error('Thrown Exception (' . $e->getCode() . '): ' . $e->getMessage());
+                    $this->getLogger()->debug($e->getTraceAsString());
                     return false;
                 }
             }
@@ -569,7 +572,8 @@ trait ModelSave
                 } catch (Exception $e) {
                     $this->getLogger()->error('Error updating many-to-many relation: ' . $e->getMessage());
                     $this->getLogger()->debug('Query: ' . $e->getSql());
-                    $this->getLogger()->exception($e);
+                    $this->getLogger()->error('Thrown Exception (' . $e->getCode() . '): ' . $e->getMessage());
+                    $this->getLogger()->debug($e->getTraceAsString());
                     return false;
                 }
             }
@@ -589,7 +593,8 @@ trait ModelSave
                 } catch (Exception $e) {
                     $this->getLogger()->error('Error updating many-to-many relation: ' . $e->getMessage());
                     $this->getLogger()->debug('Query: ' . $e->getSql());
-                    $this->getLogger()->exception($e);
+                    $this->getLogger()->error('Thrown Exception (' . $e->getCode() . '): ' . $e->getMessage());
+                    $this->getLogger()->debug($e->getTraceAsString());
                     return false;
                 }
             }
@@ -726,7 +731,8 @@ trait ModelSave
         } catch (Exception $e) {
             $this->getLogger()->error('Error running insert query: ' . $e->getMessage());
             $this->getLogger()->debug('Query: ' . $e->getSql());
-            $this->getLogger()->exception($e);
+            $this->getLogger()->error('Thrown Exception (' . $e->getCode() . '): ' . $e->getMessage());
+            $this->getLogger()->debug($e->getTraceAsString());
             return false;
         }
         if (empty($this->id)) {
