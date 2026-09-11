@@ -212,28 +212,45 @@ The ORM does not bootstrap a connection by itself. The [database test helper](te
 
 ## Model logging
 
-**Available since `lsr/orm 0.3.25`.** Configurable model logging requires `lsr/logging ^0.3.2`; check installed versions before using it.
+**Published patch API: `lsr/orm 0.3.25`.** Configurable model logging requires `lsr/logging ^0.3.2`. The published `0.3.25` patch retains concrete `Lsr\Logging\Logger` return types and the protected `Logger $logger` property; its custom providers must return an LSR logger.
 
-This patch keeps `Model::getLogger(): Lsr\Logging\Logger` and the inherited protected `Logger $logger` property unchanged. Custom providers must implement the ORM-owned [`ModelLoggerProviderInterface`](src/Logging/ModelLoggerProviderInterface.php):
+**Unreleased minor API: `lsr/orm 0.4`.** `Model::getLogger()`, `ModelRepository::getLogger()`, the inherited protected `$logger` property, and [`ModelLoggerProviderInterface::getLogger()`](src/Logging/ModelLoggerProviderInterface.php) expose `Psr\Log\LoggerInterface`. A custom provider may return any PSR-3 implementation directly, including an existing shared logger:
 
 ```php
-use Lsr\Logging\Logger;
+use Psr\Log\LoggerInterface;
 use Lsr\Orm\Logging\ModelLoggerProviderInterface;
 use Lsr\Orm\Model;
 
 final readonly class SharedModelLoggerProvider implements ModelLoggerProviderInterface
 {
-    public function __construct(private Logger $logger) {}
+    public function __construct(private LoggerInterface $logger) {}
 
     /** @param class-string<Model> $modelClass */
-    public function getLogger(string $modelClass): Logger
+    public function getLogger(string $modelClass): LoggerInterface
     {
         return $this->logger;
     }
 }
 ```
 
-A generic PSR-3 provider or return type is **not** supported in this patch. A custom provider may return an existing shared **LSR** logger; the ORM returns that exact object without wrapping it or modifying its records. Such a provider owns model identity/routing if needed. `exception()` and `logDb()` remain available to application callers. Internal ORM exception logging emits the same error message followed by the same debug trace, with no merged events or swallowed storage exceptions.
+The ORM returns the provider's exact object without wrapping it or modifying its records. A custom provider owns model identity/routing if needed; built-in model/table context enrichment is not applied to custom PSR loggers. The built-in provider still returns a concrete LSR logger and retains its covariant `Logger` return type.
+
+### Migrating to unreleased 0.4
+
+- Audit callers and injected types before adopting `0.4`; the published `0.3.25` contract does not accept providers declaring a generic `LoggerInterface` return. Existing providers returning concrete `Logger` remain valid on `0.4` through covariance.
+- `exception()` and `logDb()` are **not removed** from `Lsr\Logging\Logger`, but they are not PSR methods and are no longer guaranteed by a model getter. Use them only when explicitly holding a concrete LSR logger, not when accepting an arbitrary model logger.
+- PHP property types are invariant: subclasses that redeclare the inherited protected logger property must change its type to `LoggerInterface` or remove the redundant declaration. A getter override returning concrete `Logger` is covariant, but must actually guarantee that concrete result rather than blindly returning the generic parent getter.
+- When replacing `exception($exception)` at callers, retain the existing two-record sequence rather than merging it into one structured exception record:
+
+  ```php
+  $logger = $model->getLogger();
+  $logger->error('Thrown Exception (' . $exception->getCode() . '): ' . $exception->getMessage());
+  $logger->debug($exception->getTraceAsString());
+  ```
+
+  Preserve any surrounding messages, contexts and record order as well. Internal ORM logging already emits this error/debug pair unchanged; storage exceptions still propagate synchronously. Audit concrete-only `logDb()` calls separately and preserve their record behavior when migrating them to PSR calls.
+
+Application adoption is explicit: these contracts are unreleased and existing applications should stay on their published dependency constraints and locks until their logger callers are migrated.
 
 ### Defaults and lifetime
 
@@ -292,7 +309,7 @@ Here `%modelLogDir%` is an application-defined writable directory; `@otel.loggin
 
 Only the configured-storage path adds authoritative `lsr.orm.model` (fully qualified model class) and `lsr.orm.table` context keys, replacing caller values for those reserved keys while preserving other context. Even two classes mapped to one table remain distinguishable. An internal LSR Logger subclass adds this context then uses the normal parent logging pipeline; record-aware storage on logging `0.3.4+` also retains the table as `lsr.logger.name`. Stack exception policy, filtering, ordering and flush behavior remain those of the configured logging/telemetry services.
 
-Dynamic model loggers are not DI logger services, so OTEL `autoWire` cannot discover them. **Explicitly select an OTEL-containing base storage** rather than relying on `autoWire` to instrument every model. This opt-in shared storage does not automatically retain the old per-table file destinations: put the desired file destinations in the stack, or supply a custom concrete provider when routing must vary by model.
+Dynamic model loggers are not DI logger services, so OTEL `autoWire` cannot discover them. **Explicitly select an OTEL-containing base storage** rather than relying on `autoWire` to instrument every model. This opt-in shared storage does not automatically retain the old per-table file destinations: put the desired file destinations in the stack, or supply a custom provider when routing must vary by model (`0.3.25` requires concrete LSR results; unreleased `0.4` accepts any PSR logger).
 
 ## Development
 
