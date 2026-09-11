@@ -221,15 +221,6 @@ trait ModelFetch
                     $this->relationIds[$propertyName] = $id;
                 }
 
-                // Check for nullable relations
-                if ($id === null && $relation['factoryMethod'] === null) {
-                    if ( ! $property['allowsNull']) {
-                        throw new ValidationException('Cannot assign null to a non nullable relation');
-                    }
-                    $this->$propertyName = null;
-                    break;
-                }
-
                 if ($relation['factoryMethod'] !== null) {
                     $method = $relation['factoryMethod'];
                     /**
@@ -237,7 +228,14 @@ trait ModelFetch
                      */
                     $factoryClosure = fn () => $this->$method();
                 } else {
-                    assert($id !== null);
+                    // Check for nullable relations before constructing the ID-based loader.
+                    if ($id === null) {
+                        if ( ! $property['allowsNull']) {
+                            throw new ValidationException('Cannot assign null to a non nullable relation');
+                        }
+                        $this->$propertyName = null;
+                        break;
+                    }
                     /**
                      * @return Model|null
                      * @throws ModelNotFoundException
