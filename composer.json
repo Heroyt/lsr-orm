@@ -51,6 +51,7 @@
     "php": ">=8.4",
     "nette/di": "^3.2",
     "lsr/logging": "^0.3.2",
+    "psr/log": "^1.0 || ^2.0 || ^3.0",
     "lsr/caching": "^0.3",
     "lsr/serializer": "^0.3",
     "lsr/db": "^0.3.1",
