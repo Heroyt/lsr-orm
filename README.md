@@ -212,7 +212,7 @@ The ORM does not bootstrap a connection by itself. The [database test helper](te
 
 ## Model logging
 
-**Unreleased:** configurable model logging is available in the working tree, not in an existing published ORM version. It requires `lsr/logging ^0.3.2`; check installed source before using it.
+**Available since `lsr/orm 0.3.25`.** Configurable model logging requires `lsr/logging ^0.3.2`; check installed versions before using it.
 
 This patch keeps `Model::getLogger(): Lsr\Logging\Logger` and the inherited protected `Logger $logger` property unchanged. Custom providers must implement the ORM-owned [`ModelLoggerProviderInterface`](src/Logging/ModelLoggerProviderInterface.php):
 
