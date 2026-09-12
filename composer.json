@@ -2,7 +2,7 @@
   "name": "lsr/orm",
   "license": "MIT",
   "description": "Laser framework core - ORM",
-  "version": "0.4.0-dev",
+  "version": "0.4.0",
   "repositories": [
     {
       "type": "composer",
@@ -42,7 +42,7 @@
   },
   "authors": [
     {
-      "name": "Tomáš Vojík",
+      "name": "Tom\u00e1\u0161 Voj\u00edk",
       "email": "vojik@wboy.cz"
     }
   ],
