@@ -21,6 +21,7 @@ use Mocks\Models\ModelCC;
 use Mocks\Models\ModelD;
 use Mocks\Models\ModelE;
 use Mocks\Models\ModelInvalidInstantiate;
+use Mocks\Models\ModelWithColumnTypes;
 use Mocks\Models\ModelWithExpression;
 use Mocks\Models\ModelWithRelationFactories;
 use Mocks\Models\ModelWithTimestamps;
@@ -153,6 +154,14 @@ trait DbHelpers
                 trimmed_value CHAR(255) NOT NULL,
                 trimmed_value_on_save CHAR(255) NOT NULL,
                 trimmed_value_on_load CHAR(255) NOT NULL
+            );
+        SQL,
+        ModelWithColumnTypes::TABLE => <<<SQL
+            CREATE TABLE model_with_column_types (
+                id_model INTEGER PRIMARY KEY autoincrement NOT NULL,
+                tags TEXT NOT NULL DEFAULT '[]',
+                settings TEXT DEFAULT NULL,
+                code CHAR(255) DEFAULT NULL
             );
         SQL,
         ModelWithExpression::TABLE => <<<SQL

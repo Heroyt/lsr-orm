@@ -41,6 +41,7 @@ use Lsr\Orm\Model;
  *     relation:null|RelationConfig,
  *     isVirtual?: bool,
  *     hasTransform?: bool,
+ *     hasColumnType?: bool,
  * }
  */
 abstract class ModelConfig

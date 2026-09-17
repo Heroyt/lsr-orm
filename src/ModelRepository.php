@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Lsr\Orm;
 
+use Lsr\Orm\Attributes\ColumnType;
 use Lsr\Orm\Attributes\Factory;
 use Lsr\Orm\Config\ModelConfig;
 use Lsr\Orm\Interfaces\LoadedModel;
@@ -46,6 +47,8 @@ final class ModelRepository
     public static array $reflections = [];
     /** @var Factory[] */
     public static array $factory = [];
+    /** @var array<class-string<Model>, array<string, ColumnType|null>> Resolved property column types */
+    public static array $columnTypes = [];
 
     public static function setLifecycleHook(?ModelLifecycleHookInterface $hook): void {
         self::$lifecycleHook = $hook;

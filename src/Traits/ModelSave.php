@@ -418,6 +418,17 @@ trait ModelSave
 
             $columnName = Strings::toSnakeCase($propertyName);
 
+            // A declared column type owns the whole conversion of its column
+            if ($property['hasColumnType'] ?? false) {
+                $columnType = $this::getColumnType($propertyName);
+                assert($columnType !== null);
+                $data[$columnName] = $columnType->toDatabase(
+                    $maybeTransformForSave($this->$propertyName ?? null),
+                    $this,
+                );
+                continue;
+            }
+
             // Handle enum values
             if ($property['isEnum']) {
                 $value = $this->$propertyName ?? null;

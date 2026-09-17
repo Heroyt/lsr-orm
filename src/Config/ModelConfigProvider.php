@@ -8,6 +8,7 @@ use BackedEnum;
 use DateTimeInterface;
 use Lsr\Helpers\Tools\Strings;
 use Lsr\Logging\FsHelper;
+use Lsr\Orm\Attributes\ColumnType;
 use Lsr\Orm\Attributes\Factory;
 use Lsr\Orm\Attributes\Hooks\AfterDelete;
 use Lsr\Orm\Attributes\Hooks\AfterExternalUpdate;
@@ -234,6 +235,13 @@ trait ModelConfigProvider
                 continue;
             }
             $propertyName = $property->getName();
+            $columnTypes = $property->getAttributes(ColumnType::class, ReflectionAttribute::IS_INSTANCEOF);
+            if (count($columnTypes) > 1) {
+                throw new RuntimeException(
+                    'Cannot have more than 1 column type attribute on a property: '
+                    . static::class . '::$' . $propertyName,
+                );
+            }
             $properties[$propertyName] = [
                 'name'         => $propertyName,
                 'isPrimaryKey' => $propertyName === 'id' || $propertyName === static::findPrimaryKey(),
@@ -248,6 +256,7 @@ trait ModelConfigProvider
                 'relation'     => null,
                 'isVirtual'    => $property->isVirtual(),
                 'hasTransform' => ! empty($property->getAttributes(Transform::class, ReflectionAttribute::IS_INSTANCEOF)),
+                'hasColumnType' => $columnTypes !== [],
             ];
             if ($property->hasType()) {
                 // Check enum and date values
@@ -366,6 +375,24 @@ trait ModelConfigProvider
             return static::findProperties();
         }
         return static::getModelConfig()->properties;
+    }
+
+    /**
+     * Get the column type declared on a property
+     *
+     * @param  string  $propertyName  Name of the property
+     * @return ColumnType|null The declared column type or `null` if the property has none
+     */
+    public static function getColumnType(string $propertyName): ?ColumnType {
+        if (array_key_exists($propertyName, ModelRepository::$columnTypes[static::class] ?? [])) {
+            return ModelRepository::$columnTypes[static::class][$propertyName];
+        }
+        $attributes = static::getReflection()
+            ->getProperty($propertyName)
+            ->getAttributes(ColumnType::class, ReflectionAttribute::IS_INSTANCEOF);
+        $type = $attributes === [] ? null : $attributes[0]->newInstance();
+        ModelRepository::$columnTypes[static::class][$propertyName] = $type;
+        return $type;
     }
 
     /**

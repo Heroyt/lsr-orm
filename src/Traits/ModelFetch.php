@@ -420,6 +420,16 @@ trait ModelFetch
             }
         }
 
+        // A declared column type owns the whole conversion of its column
+        if ($property['hasColumnType'] ?? false) {
+            $columnType = $this::getColumnType($name);
+            assert($columnType !== null);
+            $value = $this->applyLoadTransforms($name, $columnType->fromDatabase($value, $this), $property);
+            $this->$name = $value;
+            $this->originalValues[$name] = $value;
+            return;
+        }
+
         // Handle null values for nullable properties
         if ($value === null && $property['allowsNull']) {
             $this->$name = null;
@@ -501,19 +511,27 @@ trait ModelFetch
             }
         }
 
-        // Custom transform after fetching from DB
-        if (array_key_exists('hasTransform', $property) && $property['hasTransform']) {
-            $propertyReflection = $this::getReflection()->getProperty($name);
-            $transformAttributes = $propertyReflection->getAttributes(Transform::class, ReflectionAttribute::IS_INSTANCEOF);
-            foreach ($transformAttributes as $attribute) {
-                /** @var Transform $transformInstance */
-                $transformInstance = $attribute->newInstance();
-                $value = $transformInstance->transformLoad($value, $this);
-            }
-        }
+        $value = $this->applyLoadTransforms($name, $value, $property);
 
         $this->$name = $value;
         $this->originalValues[$name] = $value;
+    }
+
+    /**
+     * Run the property's transform attributes on a value loaded from the database
+     *
+     * @param  PropertyConfig  $property
+     */
+    private function applyLoadTransforms(string $name, mixed $value, array $property): mixed {
+        if ( ! ($property['hasTransform'] ?? false)) {
+            return $value;
+        }
+        $propertyReflection = $this::getReflection()->getProperty($name);
+        $transformAttributes = $propertyReflection->getAttributes(Transform::class, ReflectionAttribute::IS_INSTANCEOF);
+        foreach ($transformAttributes as $attribute) {
+            $value = $attribute->newInstance()->transformLoad($value, $this);
+        }
+        return $value;
     }
 
     /**
