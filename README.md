@@ -40,6 +40,86 @@ After database/cache initialization and filesystem setup, use `Article::get($id)
 
 The example follows [`Model`](src/Model.php), [`ModelConfigProvider`](src/Config/ModelConfigProvider.php) and the concrete [test model definitions](tests/Mocks/Models). Persistence behavior is implemented in [`ModelSave`](src/Traits/ModelSave.php) and retrieval in [`ModelFetch`](src/Traits/ModelFetch.php).
 
+## Column types
+
+**Requires an installed `lsr/orm` newer than `0.4.0`.**
+
+A column type describes how one property is converted to and from its database column. Use it when
+a column's storage format differs from the property's PHP type - a value object, a JSON document, an
+encrypted or a spatial column - instead of assigning driver-specific values to a `mixed` property.
+
+Extend [`Lsr\Orm\Attributes\ColumnType`](src/Attributes/ColumnType.php), mark the concrete class as
+an attribute and place it on the property. A type is reusable: the same class can be declared on any
+number of properties and models.
+
+```php
+use Attribute;
+use Dibi\Expression;
+use Lsr\Orm\Attributes\ColumnType;
+use Lsr\Orm\Model;
+
+#[Attribute(Attribute::TARGET_PROPERTY)]
+readonly class PointType extends ColumnType
+{
+    public function __construct(public int $srid = 4326) {
+    }
+
+    public function toDatabase(mixed $value, Model $model) : mixed {
+        assert($value === null || $value instanceof Point);
+        return $value === null
+            ? null
+            : new Expression('ST_GeomFromText(%s, %i)', $value->toWkt(), $this->srid);
+    }
+
+    public function fromDatabase(mixed $value, Model $model) : mixed {
+        return is_string($value) ? Point::fromWkt($value) : null;
+    }
+}
+```
+
+```php
+#[PrimaryKey('id_place')]
+class Place extends Model
+{
+    public const string TABLE = 'places';
+
+    #[PointType(srid: 4326)]
+    public ?Point $position = null;
+}
+```
+
+`$place->save()` now writes `position = ST_GeomFromText('POINT(14.1475 49.3088)', 4326)`, and
+hydration converts the stored column back through `fromDatabase()`.
+
+### Rules
+
+- A property may declare **at most one** column type; a second one is a configuration error thrown
+  while generating the model config.
+- The type owns the whole conversion of its column. Built-in enum, date-time, scalar-cast and
+  array/object handling is skipped, so a typed property may hold any PHP value - including `array`
+  and `object` properties, which are otherwise not persisted.
+- Both directions also receive `null`; the type decides what a missing value means.
+- `#[Transform]` attributes still run, always on the PHP-side value: on save before `toDatabase()`,
+  on load after `fromDatabase()`.
+- Column types are part of the generated model config. Clear it (`orm:cache:clean`, or remove
+  `TMP_DIR/models`) after adding or removing one.
+
+### Value conversion vs. SQL conversion
+
+`toDatabase()` may return either a bound value or SQL:
+
+- `null` or a scalar is bound as a query parameter.
+- A dibi `Expression` or `Literal` is rendered as SQL - `new Expression('ST_GeomFromText(%s, %i)',
+  $wkt, 4326)`, `new Expression('%bin', $binary)` for a binary column, `new Literal('now()')`. Writes
+  containing an expression are always translated by dibi; they transparently bypass the ORM's native
+  PDO fast path, which only binds scalars.
+
+There is no read-side SQL wrapper: model queries always select `*`, and models are hydrated from
+rows produced by arbitrary queries, so `fromDatabase()` receives the column exactly as the driver
+returns it. When a column is unreadable in its stored form (for example a geometry that the driver
+returns as WKB), either parse that representation in `fromDatabase()` or keep the readable copy in
+companion columns.
+
 ## Owned content translations (since 0.3.23)
 
 Use `#[Translations]` for database-backed multilingual content owned by a model, such as product descriptions. This is opt-in: existing `OneToMany`, `ManyToOne` and other ordinary relations retain their behavior. Both models extend ordinary `Model`; no special translatable parent or translation base class is required.
