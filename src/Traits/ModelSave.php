@@ -8,6 +8,8 @@ use BackedEnum;
 use DateTimeInterface;
 use Dibi\Drivers\PdoDriver;
 use Dibi\Exception;
+use Dibi\Expression;
+use Dibi\Literal;
 use Error;
 use Lsr\Db\DB;
 use Lsr\Helpers\Tools\Strings;
@@ -38,27 +40,48 @@ use Throwable;
 trait ModelSave
 {
     /**
+     * Normalize query data for the native PDO write path.
+     *
      * @param array<string, mixed> $queryData
-     * @return array<int, array{column: string, value: mixed, type: int}>
+     * @return list<array{column: string, value: string|int|float|null, type: int}>|null
+     *     `null` if the data cannot be written natively and must be translated by dibi - because a
+     *     value is not a bindable scalar (a {@see Expression}, {@see Literal}, an array
+     *     or any other object), because a key carries a dibi modifier other than `bin`, or because
+     *     a column name cannot be used as a query placeholder.
      */
-    private function normalizeNativeQueryData(array $queryData): array {
+    private function normalizeNativeQueryData(array $queryData): ?array {
         $normalized = [];
+        $columns = [];
         foreach ($queryData as $key => $value) {
             $parts = explode('%', $key, 2);
             $column = $parts[0];
             $modifier = $parts[1] ?? null;
 
+            // Only dibi can translate its modifiers and repeated columns
+            if (($modifier !== null && $modifier !== 'bin')
+                || preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $column) !== 1
+                || isset($columns[$column])
+            ) {
+                return null;
+            }
+            $columns[$column] = true;
+
             if ($value instanceof DateTimeInterface) {
                 $value = $value->format('Y-m-d H:i:s');
             } elseif (is_bool($value)) {
-                $value = (int)$value;
+                $value = (int) $value;
+            }
+
+            // Expressions, literals, arrays and objects are SQL, not parameters
+            if ($value !== null && ! is_int($value) && ! is_float($value) && ! is_string($value)) {
+                return null;
             }
 
             $type = match (true) {
-                $modifier === 'bin' => PDO::PARAM_LOB,
-                is_int($value) => PDO::PARAM_INT,
-                $value === null => PDO::PARAM_NULL,
-                default => PDO::PARAM_STR,
+                $value === null      => PDO::PARAM_NULL,
+                $modifier === 'bin'  => PDO::PARAM_LOB,
+                is_int($value)       => PDO::PARAM_INT,
+                default              => PDO::PARAM_STR,
             };
 
             $normalized[] = [
@@ -85,6 +108,9 @@ trait ModelSave
         }
 
         $normalized = $this->normalizeNativeQueryData($queryData);
+        if ($normalized === null) {
+            return false; // Let dibi translate the values
+        }
         $columns = array_map(static fn (array $item): string => $item['column'], $normalized);
         $quotedColumns = array_map(
             static fn (string $column): string => '`' . str_replace('`', '``', $column) . '`',
@@ -110,8 +136,11 @@ trait ModelSave
         if ( ! $statement->execute()) {
             return false;
         }
-        $this->id = (int)$pdo->lastInsertId() ?: null;
-        return $this->id !== null;
+        $insertId = $pdo->lastInsertId();
+        // The row is already inserted - never report a failure that would let the dibi fallback
+        // insert it a second time. A missing ID is reported by the caller instead.
+        $this->id = is_numeric($insertId) && (int) $insertId > 0 ? (int) $insertId : null;
+        return true;
     }
 
     /**
@@ -129,6 +158,9 @@ trait ModelSave
         }
 
         $normalized = $this->normalizeNativeQueryData($queryData);
+        if ($normalized === null) {
+            return false; // Let dibi translate the values
+        }
         if ($normalized === []) {
             return true;
         }

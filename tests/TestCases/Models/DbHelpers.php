@@ -21,6 +21,7 @@ use Mocks\Models\ModelCC;
 use Mocks\Models\ModelD;
 use Mocks\Models\ModelE;
 use Mocks\Models\ModelInvalidInstantiate;
+use Mocks\Models\ModelWithExpression;
 use Mocks\Models\ModelWithRelationFactories;
 use Mocks\Models\ModelWithTimestamps;
 use Mocks\Models\ModelWithTransforms;
@@ -152,6 +153,13 @@ trait DbHelpers
                 trimmed_value CHAR(255) NOT NULL,
                 trimmed_value_on_save CHAR(255) NOT NULL,
                 trimmed_value_on_load CHAR(255) NOT NULL
+            );
+        SQL,
+        ModelWithExpression::TABLE => <<<SQL
+            CREATE TABLE model_with_expression (
+                id_model INTEGER PRIMARY KEY autoincrement NOT NULL,
+                name CHAR(255) NOT NULL,
+                value CHAR(255) DEFAULT NULL
             );
         SQL,
     ];
@@ -450,7 +458,40 @@ trait DbHelpers
             ),
         );
 
-        // Create all tables
+        $this->createTables();
+        $this->clearModelConfigs();
+        $this->refreshData();
+    }
+
+    /**
+     * Initialize the DB through dibi's generic PDO driver.
+     *
+     * Only this driver enables the ORM's native PDO write path, so it is the only way to cover it.
+     */
+    protected function initPdoDb(string $name = 'dbPdoModels'): void {
+        DB::init(
+            new Connection(
+                $this->cache,
+                $this->mapper,
+                /** @phpstan-ignore-next-line The generic PDO driver is configured by DSN */
+                [
+                    'driver' => "pdo",
+                    'dsn'    => 'sqlite:' . ROOT . "tests/tmp/{$name}.db",
+                    'prefix' => "",
+                ],
+            ),
+        );
+
+        $this->createTables();
+        $this->clearModelConfigs();
+        foreach (self::TABLES as $table => $sql) {
+            DB::delete($table, ['1 = 1']);
+        }
+        ModelRepository::clearInstances();
+        $this->cache->clean([$this->cache::All => true]);
+    }
+
+    protected function createTables(): void {
         foreach (static::TABLES as $sql) {
             try {
                 DB::getConnection()->query($sql);
@@ -461,15 +502,14 @@ trait DbHelpers
                 }
             }
         }
+    }
 
-        // Clear model configs
+    protected function clearModelConfigs(): void {
         $files = glob(TMP_DIR . 'models/*');
         assert($files !== false);
         foreach ($files as $file) {
             unlink($file);
         }
-
-        $this->refreshData();
     }
 
     protected function refreshData(): void {
