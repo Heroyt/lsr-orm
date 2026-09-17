@@ -40,9 +40,10 @@ After database/cache initialization and filesystem setup, use `Article::get($id)
 
 The example follows [`Model`](src/Model.php), [`ModelConfigProvider`](src/Config/ModelConfigProvider.php) and the concrete [test model definitions](tests/Mocks/Models). Persistence behavior is implemented in [`ModelSave`](src/Traits/ModelSave.php) and retrieval in [`ModelFetch`](src/Traits/ModelFetch.php).
 
-## Column types
+## Column types (since 0.4.1)
 
-**Requires an installed `lsr/orm` newer than `0.4.0`.**
+**Requires an installed `lsr/orm` 0.4.1 or newer.** Older installed versions do not provide the
+attribute or the conversion hooks; check the application's lock file before using them.
 
 A column type describes how one property is converted to and from its database column. Use it when
 a column's storage format differs from the property's PHP type - a value object, a JSON document, an
